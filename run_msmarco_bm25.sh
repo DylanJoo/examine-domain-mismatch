@@ -19,5 +19,5 @@ echo -ne "msmarco-dev-subset | "
 ~/trec_eval-9.0.7/trec_eval \
     -c -m ndcg_cut.10 -m recall.100 \
     /home/dju/datasets/msmarco/qrels.msmarco-passage.dev-subset.txt \
-    runs/run.msmarco.bm25 \
+    runs/run.msmarco.bm25.txt \
     | cut -f3 | sed ':a; N; $!ba; s/\n/ | /g'
