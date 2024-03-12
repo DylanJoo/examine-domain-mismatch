@@ -30,21 +30,22 @@ lotte-technology-test.forum | 0.3350  | 0.1508  |
 
 #### Additional results (Colbert-v2)
 > [Lotte-dev]
+```
 > [query_type=search, dataset=writing] Success@5: 47.3
 > [query_type=search, dataset=recreation] Success@5: 56.3
 > [query_type=search, dataset=science] Success@5: 52.2
 > [query_type=search, dataset=technology] Success@5: 35.8
 > [query_type=search, dataset=lifestyle] Success@5: 54.4
 > [query_type=search, dataset=pooled] Success@5: ???
-> 
 > [query_type=forum, dataset=writing] Success@5: 66.2
 > [query_type=forum, dataset=recreation] Success@5: 56.6
 > [query_type=forum, dataset=science] Success@5: 51.3
 > [query_type=forum, dataset=technology] Success@5: 30.7
 > [query_type=forum, dataset=lifestyle] Success@5: 48.2
 > [query_type=forum, dataset=pooled] Success@5: ???
-> 
+```
 > [Lotte-test]
+```
 > [query_type=search, dataset=writing] Success@5: 60.3
 > [query_type=search, dataset=recreation] Success@5: 56.5
 > [query_type=search, dataset=science] Success@5: 32.7
@@ -58,3 +59,4 @@ lotte-technology-test.forum | 0.3350  | 0.1508  |
 > [query_type=forum, dataset=technology] Success@5: 39.4
 > [query_type=forum, dataset=lifestyle] Success@5: 60.6
 > [query_type=forum, dataset=pooled] Success@5: ???
+```
