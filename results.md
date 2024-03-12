@@ -1,7 +1,7 @@
 
 ### Unsupervised baseline: BM25
 
-Datasets                    | R@1K    | nDCG@10 |
+Datasets                    | R@100   | nDCG@10 |
 ---                         | ---     | ---     |  
 msmarco-dev-subset          | 0.6703  | 0.2338  | 
 beir-scifact                | 0.9076  | 0.6647  | 
