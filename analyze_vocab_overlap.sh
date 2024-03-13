@@ -11,7 +11,7 @@ dataset_dir=/home/dju/datasets
 # Analyze msmarco and other datasets
 python tools/analysis/vocab_overlap.py \
     --files_path ${dataset_dir}/msmarco/collection/corpus.jsonl \
-    --files_path ${dataset_dir}/lotte/lifestyle/test/collection/docs00.json \ 
+    --files_path ${dataset_dir}/lotte/lifestyle/test/collection/docs00.json \
     --files_path ${dataset_dir}/lotte/recreation/test/collection/docs00.json \
     --files_path ${dataset_dir}/lotte/science/test/collection/docs00.json \
     --files_path ${dataset_dir}/lotte/technology/test/collection/docs00.json \
