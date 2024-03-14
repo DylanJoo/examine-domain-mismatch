@@ -33,7 +33,7 @@ def build_vectors(file, field, tdidf_vectorizer):
     doc_terms_matrix = tfidf_vectorizer.fit_transform(text)
     doc_terms_matrix = doc_terms_matrix.toarray()
     average_term_vector = doc_terms_matrix.mean(0) # average across documents
-    return average_term_vector
+    return average_term_vector * 100 # rescale
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
