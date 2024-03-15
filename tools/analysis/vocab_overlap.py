@@ -44,10 +44,10 @@ if __name__ == '__main__':
     parser.add_argument("--output_image", default='dev.png')
     parser.add_argument("--output_text", default='dev.txt')
     parser.add_argument("--min_df", default=3, type=str)
+    parser.add_argument("--min_ngram", default=1, type=int)
     parser.add_argument("--max_ngram", default=1, type=int)
     args = parser.parse_args()
     files = [p[0] for p in args.files_path]
-    print(files)
 
     vocabs = {}
     if '.' in args.min_df:
@@ -57,7 +57,7 @@ if __name__ == '__main__':
 
     vectorizer_args = {
             'min_df': number,
-            'ngram_range': (1, args.max_ngram)
+            'ngram_range': (args.min_ngram, args.max_ngram)
     }
 
     for path in files:
@@ -124,3 +124,4 @@ if __name__ == '__main__':
     plt.xticks(rotation=45)
     plt.tight_layout()
     plt.savefig(args.output_image, dpi=300)
+    print('done')

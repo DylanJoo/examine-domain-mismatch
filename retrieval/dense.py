@@ -1,15 +1,26 @@
-# [todo] add dense retrieval methods
 import os
 import json
 import argparse
 from tqdm import tqdm 
-from pyserini.search.lucene import LuceneSearcher
+from pyserini.search import FaissSearcher
 from utils import load_topic, batch_iterator
+
+import sys
+sys.path.insert(0, "/home/dju/examine-domain-mismatch")
+from models import ContrieverQueryEncoder
 
 def search(args):
 
-    searcher = LuceneSearcher(args.index)
-    searcher.set_bm25(k1=args.k1, b=args.b)
+    if 'contriever' in args.encoder_path:
+        query_encoder = ContrieverQueryEncoder(
+            args.encoder_path, 
+            device=args.device,
+            pooling='mean', 
+            l2_norm=False
+        )
+
+    searcher = FaissSearcher(args.index, query_encoder)
+
     topics = load_topic(args.topic)
     qids = list(topics.keys())
     qtexts = list(topics.values())
@@ -23,16 +34,15 @@ def search(args):
         qtexts_batch = qtexts[start: end]
         hits = searcher.batch_search(
                 queries=qtexts_batch, 
-                qids=qids_batch, 
-                threads=4,
+                q_ids=qids_batch, 
+                threads=10,
                 k=args.k,
-                fields=args.fields
         )
 
         for key, value in hits.items():
             for i in range(len(hits[key])):
                 output.write(
-                        f'{key} Q0 {hits[key][i].docid:4} {i+1} {hits[key][i].score:.5f} bm25\n'
+                        f'{key} Q0 {hits[key][i].docid:4} {i+1} {hits[key][i].score:.5f} faiss\n'
                 )
 
     output.close()
@@ -40,18 +50,12 @@ def search(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--k", default=1000, type=int)
-    parser.add_argument("--k1",type=float, default=4.68) # 0.5 # 0.82
-    parser.add_argument("--b", type=float, default=0.87) # 0.3 # 0.68
     parser.add_argument("--index", default=None, type=str)
+    parser.add_argument("--encoder_path", default=None, type=str)
     parser.add_argument("--topic", default=None, type=str)
     parser.add_argument("--batch_size", default=1, type=int)
     parser.add_argument("--output", default=None, type=str)
-    parser.add_argument('--fields', metavar="key=value", nargs='+', default=None)
+    parser.add_argument("--device", default='cpu', type=str)
     args = parser.parse_args()
-
-    if args.fields:
-        args.fields = dict([pair.split('=') for pair in args.fields])
-    else:
-        args.fields = dict()
 
     search(args)

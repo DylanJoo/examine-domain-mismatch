@@ -26,7 +26,6 @@ for dataset in scifact trec-covid scidocs;do
     ~/trec_eval-9.0.7/trec_eval \
         -c -m ndcg_cut.10 -m recall.100 \
         /home/dju/datasets/beir/${dataset}/qrels.beir-v1.0.0-${dataset}.test.txt \
-        runs/run.beir.${dataset}.bm25-multifield.txt \
+        runs/baseline_bm25/run.beir.${dataset}.bm25-multifield.txt \
         | cut -f3 | sed ':a; N; $!ba; s/\n/ | /g'
 done
-

@@ -10,6 +10,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import matplotlib
 import argparse
+from collections import defaultdict
 
 sns.set(context="paper", style="white", font_scale=2.1)
 
@@ -27,13 +28,21 @@ def load_data(data_path, field='text'):
                 examples.append(text)
     return examples
 
-def build_vectors(file, field, tdidf_vectorizer):
-    # vectorizer, documents, min_df, ngram_range):
+def build_vectors(file, field, min_df):
+    dd = defaultdict(float)
     text = load_data(file, field)
+    tfidf_vectorizer = TfidfVectorizer(
+            min_df=min_df,
+            stop_words="english", 
+            ngram_range=(args.min_ngram, args.max_ngram)
+    )
     doc_terms_matrix = tfidf_vectorizer.fit_transform(text)
-    doc_terms_matrix = doc_terms_matrix.toarray()
-    average_term_vector = doc_terms_matrix.mean(0) # average across documents
-    return average_term_vector * 100 # rescale
+    average_term_vector = doc_terms_matrix.mean(0) * 100
+    average_term_vector = np.asarray(average_term_vector).flatten()
+    term_list = tfidf_vectorizer.get_feature_names_out()
+    vector_dict = {k: v for k, v in zip(term_list, average_term_vector)}
+    dd.update(vector_dict)
+    return dd
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -41,10 +50,10 @@ if __name__ == '__main__':
     parser.add_argument("--output_image", default='dev.png')
     parser.add_argument("--output_text", default='dev.txt')
     parser.add_argument("--min_df", default=3, type=str)
+    parser.add_argument("--min_ngram", default=1, type=int)
     parser.add_argument("--max_ngram", default=1, type=int)
     args = parser.parse_args()
     files = [p[0] for p in args.files_path]
-    print(files)
 
     if '.' in args.min_df:
         number = float(args.min_df)
@@ -63,47 +72,46 @@ if __name__ == '__main__':
     count_vectorizer = CountVectorizer(
             min_df=number,
             stop_words="english", 
-            ngram_range=(1, args.max_ngram),
+            ngram_range=(args.min_ngram, args.max_ngram),
             binary=True # only extract the appearance
     )
     count_vectorizer.fit(tqdm(all_documents))
-    all_vocabulary = set(count_vectorizer.vocabulary_.keys())
+    all_vocabulary = list(count_vectorizer.vocabulary_.keys())
     del all_documents
 
-    tfidf_vectorizer = TfidfVectorizer(
-            min_df=number,
-            stop_words="english", 
-            vocabulary=all_vocabulary,
-            ngram_range=(1, args.max_ngram)
-    )
-    del count_vectorizer
-
     # Build tfidf vectors for the datasets
-    vectors = {}
+    vectors_ = {}
     for path in files:
+        kwargs = dict(file=path, field='text', min_df=number)
         if 'scidocs' in path:
-            vectors['SD'] = build_vectors(path, 'text', tfidf_vectorizer)
+            vectors_['SD'] = build_vectors(**kwargs)
         elif 'scifact' in path:
-            vectors['SF'] = build_vectors(path, 'text', tfidf_vectorizer)
+            vectors_['SF'] = build_vectors(**kwargs)
         elif 'trec-covid' in path:
-            vectors['TC'] = build_vectors(path, 'text', tfidf_vectorizer)
+            vectors_['TC'] = build_vectors(**kwargs)
         elif 'msmarco' in path:
-            vectors['MS'] = build_vectors(path, 'text', tfidf_vectorizer)
+            vectors_['MS'] = build_vectors(**kwargs)
         elif 'lotte' in path:
-
+            kwargs['field'] = 'contents'
             if 'lifestyle' in path:
-                vectors['lotte-li'] = build_vectors(path, 'contents', tfidf_vectorizer)
+                vectors_['lotte-li'] = build_vectors(**kwargs)
             elif 'recreation' in path:
-                vectors['lotte-re'] = build_vectors(path, 'contents', tfidf_vectorizer)
+                vectors_['lotte-re'] = build_vectors(**kwargs)
             elif 'science' in path:
-                vectors['lotte-sc'] = build_vectors(path, 'contents', tfidf_vectorizer)
+                vectors_['lotte-sc'] = build_vectors(**kwargs)
             elif 'writing' in path:
-                vectors['lotte-wr'] = build_vectors(path, 'contents', tfidf_vectorizer)
+                vectors_['lotte-wr'] = build_vectors(**kwargs)
             elif 'technology' in path:
-                vectors['lotte-te'] = build_vectors(path, 'contents', tfidf_vectorizer)
+                vectors_['lotte-te'] = build_vectors(**kwargs)
 
-    if len(vectors.keys()) <= 1:
+    if len(vectors_.keys()) <= 1:
         raise ValueError('At least two collections required.')
+
+    # reorganize the array with shared vocabulary
+    vectors = defaultdict(list)
+    for dataset_key, vector_dict in vectors_.items():
+        for i, vocab in enumerate(all_vocabulary):
+            vectors[dataset_key].append(vector_dict[vocab])
 
     vectors_matrix = np.array([vectors[k] for k in vectors.keys()]) 
     data = np.corrcoef(vectors_matrix)
