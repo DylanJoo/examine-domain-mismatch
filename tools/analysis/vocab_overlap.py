@@ -27,48 +27,62 @@ def load_data(data_path, field):
                 examples.append(text)
     return examples
 
-def load_vocab(file, field='text'):
+def load_vocab(file, field, min_df, ngram_range):
     text = load_data(file, field)
-    count_vectorizer = CountVectorizer(min_df=3, stop_words="english")
+    count_vectorizer = CountVectorizer(
+            min_df=min_df, 
+            stop_words="english", 
+            ngram_range=ngram_range
+    )
     count_vectorizer.fit(tqdm(text))
     vocab = set(count_vectorizer.vocabulary_.keys())
     return vocab
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--files_path", nargs="+", action='append')
     parser.add_argument("--output_image", default='dev.png')
     parser.add_argument("--output_text", default='dev.txt')
+    parser.add_argument("--min_df", default=3, type=str)
+    parser.add_argument("--min_ngram", default=1, type=int)
+    parser.add_argument("--max_ngram", default=1, type=int)
     args = parser.parse_args()
     files = [p[0] for p in args.files_path]
-    print(files)
 
     vocabs = {}
+    if '.' in args.min_df:
+        number = float(args.min_df)
+    else:
+        number = int(float(args.min_df))
+
+    vectorizer_args = {
+            'min_df': number,
+            'ngram_range': (args.min_ngram, args.max_ngram)
+    }
+
     for path in files:
         if 'scidocs' in path:
-            vocabs['SD'] = load_vocab(path)
+            vocabs['SD'] = load_vocab(path, 'text', **vectorizer_args)
         elif 'scifact' in path:
-            vocabs['SF'] = load_vocab(path)
+            vocabs['SF'] = load_vocab(path, 'text', **vectorizer_args)
         elif 'trec-covid' in path:
-            vocabs['TC'] = load_vocab(path)
+            vocabs['TC'] = load_vocab(path, 'text', **vectorizer_args)
         elif 'msmarco' in path:
-            vocabs['MS'] = load_vocab(path)
+            vocabs['MS'] = load_vocab(path, 'text', **vectorizer_args)
         elif 'lotte' in path:
             if 'lifestyle' in path:
-                vocabs['lotte-li'] = load_vocab(path, 'contents')
+                vocabs['lotte-li'] = load_vocab(path, 'contents', **vectorizer_args)
             elif 'recreation' in path:
-                vocabs['lotte-re'] = load_vocab(path, 'contents')
+                vocabs['lotte-re'] = load_vocab(path, 'contents', **vectorizer_args)
             elif 'science' in path:
-                vocabs['lotte-sc'] = load_vocab(path, 'contents')
+                vocabs['lotte-sc'] = load_vocab(path, 'contents', **vectorizer_args)
             elif 'writing' in path:
-                vocabs['lotte-wr'] = load_vocab(path, 'contents')
+                vocabs['lotte-wr'] = load_vocab(path, 'contents', **vectorizer_args)
             elif 'technology' in path:
-                vocabs['lotte-te'] = load_vocab(path, 'contents')
+                vocabs['lotte-te'] = load_vocab(path, 'contents', **vectorizer_args)
 
     if len(vocabs.keys()) <= 1:
         raise ValueError('At least two collections required.')
-
 
     file_pairs = itertools.combinations(list(vocabs.keys()), 2)
     overlaps = {}
