@@ -124,4 +124,3 @@ if __name__ == '__main__':
     plt.xticks(rotation=45)
     plt.tight_layout()
     plt.savefig(args.output_image, dpi=300)
-    print('done')
