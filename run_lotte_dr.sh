@@ -2,7 +2,7 @@ encoder=facebook/contriever
 index_dir=/home/dju/indexes
 data_dir=/home/dju/datasets/lotte
 
-for dataset in science writing lifestyle recreation;do # technology
+for dataset in science writing lifestyle recreation technology;do
 
     for split in test;do
 

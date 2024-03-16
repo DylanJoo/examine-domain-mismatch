@@ -37,7 +37,7 @@ def build_vectors(file, field, min_df):
             ngram_range=(args.min_ngram, args.max_ngram)
     )
     doc_terms_matrix = tfidf_vectorizer.fit_transform(text)
-    average_term_vector = doc_terms_matrix.mean(0) * 100
+    average_term_vector = doc_terms_matrix.mean(0) 
     average_term_vector = np.asarray(average_term_vector).flatten()
     term_list = tfidf_vectorizer.get_feature_names_out()
     vector_dict = {k: v for k, v in zip(term_list, average_term_vector)}
@@ -111,10 +111,10 @@ if __name__ == '__main__':
     vectors = defaultdict(list)
     for dataset_key, vector_dict in vectors_.items():
         for i, vocab in enumerate(all_vocabulary):
-            vectors[dataset_key].append(vector_dict[vocab])
+            vectors[dataset_key] += [vector_dict[vocab]]
 
     vectors_matrix = np.array([vectors[k] for k in vectors.keys()]) 
-    data = np.corrcoef(vectors_matrix)
+    data = np.corrcoef(vectors_matrix) * 100
 
     with open(args.output_text, "w") as f:
         for row in data:

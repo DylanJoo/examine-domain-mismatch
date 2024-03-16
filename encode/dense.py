@@ -116,6 +116,11 @@ if __name__ == '__main__':
     args = parse_args(parser, commands)
     delimiter = args.input.delimiter.replace("\\n", "\n")  # argparse would add \ prior to the passed '\n\n'
 
+    # Multi-shards
+    if args.input.shard_num > 1:
+        print(f'[{args.input.shard_id}/{args.input.shard_num}] is processing')
+        args.output.embeddings = args.output.embeddings + f"{args.input.shard_num}_{args.input.shard_id}"
+
     encoder = init_encoder(
         args.encoder.encoder, args.encoder.encoder_class, 
         device=args.encoder.device, pooling=args.encoder.pooling, l2_norm=args.encoder.l2_norm, prefix=args.encoder.prefix
