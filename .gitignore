@@ -1,2 +1,6 @@
 runs/
 **/__pycache__/
+*.swp
+**/*.swp
+slurm/
+analysis/2gram-idf-beir.json
