@@ -1,5 +1,11 @@
 # examine-domain-mismatch
 
+<<<<<<< HEAD
+
+### Datasets
+- [BEIR](https://github.com/beir-cellar/beir)
+- [Lotte](https://github.com/stanford-futuredata/ColBERT/blob/main/LoTTE.md)
+=======
 ---
 ### Methods
 
@@ -43,3 +49,4 @@
 #### Check section coherence
 #### Draft paper outline
 
+>>>>>>> main

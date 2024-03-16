@@ -3,10 +3,11 @@
 | Datasets                      | BM25    | Contriver | 
 | ---                           | ---     | ---       |  
 |                               | nDCG@10 | nDCG@10   | 
-| msmarco-dev-subset            | 0.2338  |           |
+| msmarco-dev-subset            | 0.2338  | 0.2055    |
 | beir-scifact                  | 0.6647  | 0.6394    |
 | beir-trec-covid               | 0.6534  | 0.2771    |
 | beir-scidocs                  | 0.1581  | 0.1509    |
+
 
 ### Lotte-test
 | Datasets                      | BM25    | Contriver | 
@@ -36,7 +37,7 @@
 | lotte-technology-dev.search   | 0.2183  |           |
 | lotte-technology-dev.forum    | 0.1107  |           |
 
-# Additional results (Colbert-v2)
+# Additional results (ref: colbert-v2)
 ```
 # [Lotte-dev]
 [query_type=search, dataset=writing] Success@5: 47.3
