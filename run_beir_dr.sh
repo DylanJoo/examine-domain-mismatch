@@ -27,7 +27,7 @@ for dataset in scifact trec-covid scidocs;do
         --topic ${data_dir}/${dataset}/queries.jsonl \
         --batch_size 64 \
         --device cuda \
-        --output runs/run.beir.${dataset}.contriever.txt
+        --output runs/baseline_contriever/run.beir.${dataset}.contriever.txt
 done
 
 # Evaluation
@@ -37,6 +37,6 @@ for dataset in scifact trec-covid scidocs;do
     ~/trec_eval-9.0.7/trec_eval \
         -c -m ndcg_cut.10 -m recall.100 \
         ${data_dir}/${dataset}/qrels.beir-v1.0.0-${dataset}.test.txt \
-        runs/run.beir.${dataset}.contriever.txt \
+        runs/baseline_contriever/run.beir.${dataset}.contriever.txt \
         | cut -f3 | sed ':a; N; $!ba; s/\n/ | /g'
 done

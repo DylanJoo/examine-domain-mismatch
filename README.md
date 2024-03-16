@@ -1,37 +1,35 @@
 # examine-domain-mismatch
 
-<<<<<<< HEAD
-
-### Datasets
-- [BEIR](https://github.com/beir-cellar/beir)
-- [Lotte](https://github.com/stanford-futuredata/ColBERT/blob/main/LoTTE.md)
-=======
----
 ### Methods
 
-#### Retriever architectures
-- SR
-- DR 
-- Others: 
-
 #### Unsupervised learning (schemes and sampling)
-- ICT
-- Ind. Crop
-    * Word replacement
+* [ ] Inverse cloze task: [reference](#)
+* [ ] Random span extraction
+* [ ] Indepandant croppping
+    * [ ] Word replacement
 
+### Experiments
+
+#### Retriever architectures
+- Lexical: BM25 
+- **Dense**
+- Learned sparse
+- Fused: 
 
 ### Datasets
 - [BEIR](https://github.com/beir-cellar/beir)
     * Scidocs
     * Scifact
-    * TREC COVID
+    * TREC COVID 
 
-- [Lotte](https://github.com/stanford-futuredata/ColBERT/blob/main/LoTTE.md)
+- [Lotte-test](https://github.com/stanford-futuredata/ColBERT/blob/main/LoTTE.md)
     * lifestyle
     * recreation
     * science
     * technology
     * writing
+
+- [MSMARCO-dev-subset](#)
 
 ---
 ### Drafting

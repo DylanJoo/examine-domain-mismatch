@@ -30,7 +30,7 @@ for dataset in science writing lifestyle recreation technology;do
         #         --topic ${data_dir}/${dataset}/${split}/questions.${query_type}.tsv \
         #         --batch_size 64 \
         #         --device cuda \
-        #         --output runs/run.lotte-${dataset}-${split}.${query_type}.contriever.txt
+        #         --output runs/baseline_contriever/run.lotte-${dataset}-${split}.${query_type}.contriever.txt
         # done
 
         echo evaluation...${dataset}
@@ -39,7 +39,7 @@ for dataset in science writing lifestyle recreation technology;do
             ~/trec_eval-9.0.7/trec_eval \
                 -c -m ndcg_cut.10 -m recall.100 \
                 ${data_dir}/${dataset}/${split}/qrels.lotte-${dataset}-${split}.${query_type}.txt \
-                runs/run.lotte-${dataset}-${split}.${query_type}.contriever.txt \
+                runs/baseline_contriever/run.lotte-${dataset}-${split}.${query_type}.contriever.txt \
                 | cut -f3 | sed ':a; N; $!ba; s/\n/ | /g'
         done
     done

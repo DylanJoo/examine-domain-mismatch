@@ -1,5 +1,4 @@
 # for dataset in scifact trec-covid scidocs;do
-#
 #     # Indexing
 #     index=/home/dju/indexes/beir/${dataset}-multifield.lucene
 #     python -m pyserini.index.lucene \
