@@ -3,3 +3,4 @@ runs/
 *.swp
 **/*.swp
 slurm/
+analysis/2gram-idf-beir.json

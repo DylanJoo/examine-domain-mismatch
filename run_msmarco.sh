@@ -1,3 +1,4 @@
+# BM25 index and search
 # python -m pyserini.index.lucene \
 #     --collection BeirFlatCollection \
 #     --input /home/dju/datasets/msmarco/collection \
@@ -12,7 +13,8 @@
 #     --batch_size 8 \
 #     --output runs/run.msmarco-dev-subset.bm25 \
 
-echo 'Indexing msmarco' # done by multi-parallel process
+# DR index and search
+# [index] this should be done by multi-parallel process
 # python encode/dense.py input \
 #     --corpus /home/dju/datasets/msmarco/collection \
 #     --fields text \
@@ -27,9 +29,10 @@ echo 'Indexing msmarco' # done by multi-parallel process
 #     --max-length 256 \
 #     --device cuda
 
-python -m pyserini.index.merge_faiss_indexes \
-    --prefix /home/dju/indexes/msmarco-contriever.faiss4_ \
-    --shard-num 4
+mv /home/dju/indexes/msmarco-contriever.faissfull /home/dju/indexes/msmarco-contriever.faiss
+# python -m pyserini.index.merge_faiss_indexes \
+#     --prefix /home/dju/indexes/msmarco-contriever.faiss \
+#     --shard-num 4
 
 echo 'Searching msmarco'
 python retrieval/dense.py \
@@ -37,7 +40,7 @@ python retrieval/dense.py \
     --index /home/dju/indexes/msmarco-contriever.faiss \
     --encoder_path facebook/contriever \
     --topic /home/dju/datasets/msmarco/queries.dev-subset.txt \
-    --batch_size 64 \
+    --batch_size 32 \
     --device cuda \
     --output runs/run.msmarco-dev-subset.contriever.txt
 
@@ -54,3 +57,5 @@ echo -ne "msmarco-dev-subset | "
     /home/dju/datasets/msmarco/qrels.msmarco-passage.dev-subset.txt \
     runs/run.msmarco-dev-subset.contriever.txt \
     | cut -f3 | sed ':a; N; $!ba; s/\n/ | /g'
+
+echo done
