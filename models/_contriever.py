@@ -1,93 +1,92 @@
-# Pyserini: Reproducible IR research with sparse and dense representations
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-# http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-#
-
-from typing import Optional
-
-import faiss
+import os
 import torch
-from pyserini.encode import DocumentEncoder
-from pyserini.search.faiss import QueryEncoder
-from transformers import AutoModel, AutoTokenizer
-import sys
+import transformers
+from transformers import BertModel
 
-class ContrieverDocumentEncoder(DocumentEncoder):
-    def __init__(self, model_name_or_dir, tokenizer_name=None, device='cuda:0', pooling='mean', l2_norm=False):
-        self.device = device
-        self.model = AutoModel.from_pretrained(model_name_or_dir or 'facebook/contriever')
-        self.model.to(self.device)
-        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name or model_name_or_dir)
-        self.has_model = True
-        self.pooling = pooling
-        self.l2_norm = l2_norm
 
-    def encode(self, texts=None, titles=None, max_length=256, **kwargs):
-        if titles is not None: 
-            texts = [f'{title} {text}'.strip() for title, text in zip(titles, texts)]
 
-        inputs = self.tokenizer(
-            texts,
-            max_length=max_length,
-            padding='longest',
-            truncation=True,
-            add_special_tokens=True,
-            return_tensors='pt'
+class Contriever(BertModel):
+    def __init__(self, config, pooling="average", **kwargs):
+        super().__init__(config, add_pooling_layer=False)
+        if not hasattr(config, "pooling"):
+            self.config.pooling = pooling
+
+    def forward(
+        self,
+        input_ids=None,
+        attention_mask=None,
+        token_type_ids=None,
+        position_ids=None,
+        head_mask=None,
+        inputs_embeds=None,
+        encoder_hidden_states=None,
+        encoder_attention_mask=None,
+        output_attentions=None,
+        output_hidden_states=None,
+        normalize=False,
+    ):
+
+        model_output = super().forward(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids,
+            position_ids=position_ids,
+            head_mask=head_mask,
+            inputs_embeds=inputs_embeds,
+            encoder_hidden_states=encoder_hidden_states,
+            encoder_attention_mask=encoder_attention_mask,
+            output_attentions=output_attentions,
+            output_hidden_states=output_hidden_states,
         )
-        inputs.to(self.device) 
-        outputs = self.model(**inputs)
 
-        if self.pooling == "mean":
-            embeddings = self._mean_pooling(outputs[0], inputs['attention_mask']).detach().cpu().numpy()
-        else:
-            embeddings = outputs[0][:, 0, :].detach().cpu().numpy()
-        if self.l2_norm:
-            embeddings = normalize(embeddings, axis=1, norm='l2')
-        return embeddings
+        last_hidden = model_output["last_hidden_state"]
+        last_hidden = last_hidden.masked_fill(~attention_mask[..., None].bool(), 0.0)
 
-class ContrieverQueryEncoder(QueryEncoder):
-    def __init__(self, model_name_or_dir, tokenizer_name=None, device='cpu', pooling='mean', l2_norm=False):
-        self.device = device
-        self.model = AutoModel.from_pretrained(model_name_or_dir or 'facebook/contriever')
-        self.model.to(self.device)
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name_or_dir or tokenizer_name)
-        self.pooling = pooling
-        self.l2_norm = l2_norm
+        if self.config.pooling == "average":
+            emb = last_hidden.sum(dim=1) / attention_mask.sum(dim=1)[..., None]
+        elif self.config.pooling == "cls":
+            emb = last_hidden[:, 0]
 
-    def encode(self, query: str, **kwargs):
-        inputs = self.tokenizer(
-            [query],
-            max_length=64,
-            padding='longest',
-            truncation='only_first',
-            add_special_tokens=True,
-            return_tensors='pt'
-        )
-        inputs.to(self.device)
-        outputs = self.model(**inputs)
+        if normalize:
+            emb = torch.nn.functional.normalize(emb, dim=-1)
+        return emb
 
-        if self.pooling == "mean":
-            embeddings = self._mean_pooling(outputs, inputs['attention_mask']).detach().cpu().numpy()
-        else:
-            embeddings = outputs[0][:, 0, :].detach().cpu().numpy()
-        if self.l2_norm:
-            faiss.normalize_L2(embeddings)
-        return embeddings.flatten()
 
-    @staticmethod
-    def _mean_pooling(model_output, attention_mask):
-        token_embeddings = model_output[0]  # First element of model_output contains all token embeddings
-        input_mask_expanded = attention_mask.unsqueeze(-1).expand(token_embeddings.size()).float()
-        sum_embeddings = torch.sum(token_embeddings * input_mask_expanded, 1)
-        sum_mask = torch.clamp(input_mask_expanded.sum(1), min=1e-9)
-        return sum_embeddings / sum_mask
+
+# from src import utils
+# def load_retriever(model_path, pooling="average", random_init=False):
+#     # try: check if model exists locally
+#     path = os.path.join(model_path, "checkpoint.pth")
+#     if os.path.exists(path):
+#         pretrained_dict = torch.load(path, map_location="cpu")
+#         opt = pretrained_dict["opt"]
+#         if hasattr(opt, "retriever_model_id"):
+#             retriever_model_id = opt.retriever_model_id
+#         else:
+#             # retriever_model_id = "bert-base-uncased"
+#             retriever_model_id = "bert-base-multilingual-cased"
+#         tokenizer = utils.load_hf(transformers.AutoTokenizer, retriever_model_id)
+#         cfg = utils.load_hf(transformers.AutoConfig, retriever_model_id)
+#         if "xlm" in retriever_model_id:
+#             model_class = XLMRetriever
+#         else:
+#             model_class = Contriever
+#         retriever = model_class(cfg)
+#         pretrained_dict = pretrained_dict["model"]
+#
+#         if any("encoder_q." in key for key in pretrained_dict.keys()):  # test if model is defined with moco class
+#             pretrained_dict = {k.replace("encoder_q.", ""): v for k, v in pretrained_dict.items() if "encoder_q." in k}
+#         elif any("encoder." in key for key in pretrained_dict.keys()):  # test if model is defined with inbatch class
+#             pretrained_dict = {k.replace("encoder.", ""): v for k, v in pretrained_dict.items() if "encoder." in k}
+#         retriever.load_state_dict(pretrained_dict, strict=False)
+#     else:
+#         retriever_model_id = model_path
+#         if "xlm" in retriever_model_id:
+#             model_class = XLMRetriever
+#         else:
+#             model_class = Contriever
+#         cfg = utils.load_hf(transformers.AutoConfig, model_path)
+#         tokenizer = utils.load_hf(transformers.AutoTokenizer, model_path)
+#         retriever = utils.load_hf(model_class, model_path)
+#
+#     return retriever, tokenizer, retriever_model_id

@@ -1,7 +1,11 @@
 from transformers import Trainer
+from transformers.utils import logging
 from transformers.modeling_utils import unwrap_model
 from transformers.modeling_outputs import BaseModelOutput
 from transformers.models.auto.modeling_auto import MODEL_FOR_CAUSAL_LM_MAPPING_NAMES
+
+logging.set_verbosity_info()
+logger = logging.get_logger("transformers")
 
 class TrainerBase(Trainer):
 
@@ -42,5 +46,9 @@ class TrainerBase(Trainer):
                 )
             # We don't use .loss here since the model may return tuples instead of ModelOutput.
             loss = outputs["loss"] if isinstance(outputs, dict) else outputs[0]
+
+
+        if self.state.global_step % 10 == 0:
+            logger.info(f"loss: {outputs['loss'].item()} | acc: {outputs['acc']}")
 
         return (loss, outputs) if return_outputs else loss

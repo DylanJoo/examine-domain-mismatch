@@ -1,13 +1,13 @@
 import os
+import sys
 import json
 import argparse
 from tqdm import tqdm 
-from pyserini.search import FaissSearcher
-from utils import load_topic, batch_iterator
 
-import sys
-sys.path.insert(0, "/home/dju/examine-domain-mismatch")
-from models import ContrieverQueryEncoder
+from pyserini.search import FaissSearcher
+
+from encoders import ContrieverQueryEncoder
+from utils import load_topic, batch_iterator
 
 def search(args):
 

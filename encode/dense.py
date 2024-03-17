@@ -21,8 +21,7 @@ import sys
 from pyserini.encode import JsonlCollectionIterator, FaissRepresentationWriter
 from pyserini.encode import AutoDocumentEncoder
 
-sys.path.insert(0, "/home/dju/examine-domain-mismatch")
-from models import ContrieverDocumentEncoder
+from encoders import ContrieverDocumentEncoder
 
 encoder_class_map = {
     "contriever": ContrieverDocumentEncoder

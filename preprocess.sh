@@ -13,7 +13,7 @@ for ((i=0;i<$NSPLIT;i++));do
     FILE=${INFILE}${num};
     echo $FILE
     
-    python unsupervised-sampling/ind-cropping/preprocess.py \
+    python unsupervised_sampling/ind_cropping/preprocess.py \
         --tokenizer bert-base-uncased \
         --datapath ${FILE} \
         --overwrite \

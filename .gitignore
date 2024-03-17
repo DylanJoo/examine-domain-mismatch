@@ -4,3 +4,4 @@ runs/
 **/*.swp
 slurm/
 analysis/2gram-idf-beir.json
+models/ckpt*/
