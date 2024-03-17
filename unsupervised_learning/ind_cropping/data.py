@@ -1,4 +1,5 @@
 # Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
+# /home/dju/datasets/test_collection/bert-base-uncased/corpus.jsonl01.pkl
 
 import os
 import glob
@@ -12,73 +13,36 @@ import logging
 from collections import defaultdict
 import torch.distributed as dist
 
-from src import dist_utils
+# from src import dist_utils
 
 logger = logging.getLogger(__name__)
 
 
-def load_data(opt, tokenizer):
+def load_dataset(opt, tokenizer):
+    """
+    The original contriever has the multdataset settings. 
+    """
     datasets = {}
-    for path in opt.train_data:
-        data = load_dataset(path, opt.loading_mode)
-        if data is not None:
-            datasets[path] = Dataset(data, opt.chunk_length, tokenizer, opt)
-    dataset = MultiDataset(datasets)
-    dataset.set_prob(coeff=opt.sampling_coefficient)
-    return dataset
-
-
-def load_dataset(data_path, loading_mode):
-    files = glob.glob(os.path.join(data_path, "*.p*"))
+    files = glob.glob(os.path.join(opt.train_data_dir, "*.p*"))
     files.sort()
     tensors = []
-    if loading_mode == "split":
+    if opt.loading_mode == "split":
         files_split = list(np.array_split(files, dist_utils.get_world_size()))[dist_utils.get_rank()]
         for filepath in files_split:
             try:
                 tensors.append(torch.load(filepath, map_location="cpu"))
             except:
                 logger.warning(f"Unable to load file {filepath}")
-    elif loading_mode == "full":
+    elif opt.loading_mode == "full":
         for fin in files:
             tensors.append(torch.load(fin, map_location="cpu"))
-    elif loading_mode == "single":
+    elif opt.loading_mode == "single":
         tensors.append(torch.load(files[0], map_location="cpu"))
+
     if len(tensors) == 0:
         return None
     tensor = torch.cat(tensors)
-    return tensor
-
-
-class MultiDataset(torch.utils.data.Dataset):
-    def __init__(self, datasets):
-
-        self.datasets = datasets
-        self.prob = [1 / len(self.datasets) for _ in self.datasets]
-        self.dataset_ids = list(self.datasets.keys())
-
-    def __len__(self):
-        return sum([len(dataset) for dataset in self.datasets.values()])
-
-    def __getitem__(self, index):
-        dataset_idx = numpy.random.choice(range(len(self.prob)), 1, p=self.prob)[0]
-        did = self.dataset_ids[dataset_idx]
-        index = random.randint(0, len(self.datasets[did]) - 1)
-        sample = self.datasets[did][index]
-        sample["dataset_id"] = did
-        return sample
-
-    def generate_offset(self):
-        for dataset in self.datasets.values():
-            dataset.generate_offset()
-
-    def set_prob(self, coeff=0.0):
-
-        prob = np.array([float(len(dataset)) for _, dataset in self.datasets.items()])
-        prob /= prob.sum()
-        prob = np.array([p**coeff for p in prob])
-        prob /= prob.sum()
-        self.prob = prob
+    return Dataset(tensor, opt.chunk_length, tokenizer, opt)
 
 
 class Dataset(torch.utils.data.Dataset):
