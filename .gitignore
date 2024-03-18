@@ -5,3 +5,4 @@ runs/
 slurm/
 analysis/2gram-idf-beir.json
 models/ckpt*/
+wandb/
