@@ -10,6 +10,7 @@ from ind_cropping.options import ModelOptions, DataOptions, TrainOptions
 from ind_cropping.data import load_dataset, Collator
 
 from models import Contriever
+from models._dev import Contriever
 from models import InBatch
 from trainers import TrainerBase
 
@@ -23,7 +24,7 @@ def main():
 
     # [Model] tokenizer, model architecture (with bi-encoders)
     tokenizer = AutoTokenizer.from_pretrained(model_opt.model_path or model_opt.model_name)
-    encoder = Contriever.from_pretrained(model_opt.model_name)
+    encoder = Contriever.from_pretrained(model_opt.model_name, pooling=model_opt.pooling)
     model = InBatch(model_opt, retriever=encoder, tokenizer=tokenizer)
     
     # [Data] train/eval datasets, collator, preprocessor

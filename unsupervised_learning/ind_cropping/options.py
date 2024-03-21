@@ -9,8 +9,10 @@ class ModelOptions:
     model_name: Optional[str] = field(default=None)
     model_path: Optional[str] = field(default=None)
     tokenizer_name: Optional[str] = field(default=None)
+    pooling: Optional[str] = field(default="average")
     norm_doc: Optional[bool] = field(default=False)
     norm_query: Optional[bool] = field(default=False)
+    output_span: Optional[bool] = field(default=False)
 
 @dataclass
 class DataOptions:
@@ -30,8 +32,8 @@ class TrainOptions(TrainingArguments):
     do_train: bool = field(default=False)
     do_eval: bool = field(default=False)
     max_steps: int = field(default=-1)
-    save_steps: int = field(default=100)
-    eval_steps: int = field(default=50)
+    save_steps: int = field(default=1000)
+    eval_steps: int = field(default=1000)
     evaluation_strategy: Optional[str] = field(default='no')
     per_device_train_batch_size: int = field(default=2)
     per_device_eval_batch_size: int = field(default=2)
