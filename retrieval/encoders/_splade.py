@@ -28,16 +28,18 @@ import numpy as np
 from collections import defaultdict
 
 def splade_max(tensor, additional_mask=None):
-    values, indices = torch.max(
-        torch.log(1 + torch.relu(tensor)) * additional_mask.unsqueeze(-1), 
-        dim=1
-    )
+    if additional_mask:
+        values, indices = torch.max(
+            torch.log(1 + torch.relu(tensor)) * additional_mask.unsqueeze(-1), 
+            dim=1)
+    else:
+        values, indices = torch.max(torch.log(1 + torch.relu(tensor)), dim=1)
     return values
 
 class SpladeDocumentEncoder(DocumentEncoder):
     def __init__(self, model_name_or_dir, tokenizer_name=None, device='cuda:0', pooling='max', minimum=0, quantization_factor=1000):
         self.device = device
-        self.model = AutoModel.from_pretrained(model_name_or_dir or 'naver/splade-cocondenser-ensembledistil')
+        self.model = AutoModelForMaskedLM.from_pretrained(model_name_or_dir or 'naver/splade-cocondenser-ensembledistil')
         self.model.to(self.device)
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name or model_name_or_dir)
         self.has_model = True
@@ -47,7 +49,7 @@ class SpladeDocumentEncoder(DocumentEncoder):
             self.pooler = nn.Identity
         # self.l2_norm = l2_norm # seems splade inference will never normalize
         self.quantization_factor = quantization_factor
-        self.reverse_voc = {v: k for k, v in tokenizer.vocab.items()} 
+        self.reverse_voc = {v: k for k, v in self.tokenizer.vocab.items()} 
         self.minimum = minimum
 
     def encode(self, texts=None, titles=None, max_length=256, **kwargs):
@@ -69,12 +71,9 @@ class SpladeDocumentEncoder(DocumentEncoder):
         logits = outputs['logits']
         vector = logits.masked_fill(~attention_mask[..., None].bool(), 0.0)
         vector = self.pooler(vector) # --> bsz vsz
-        # return vector
 
-        ## post-processing 1
-        bow_rep_dict = self._get_bow_rep_dict(vecrtor)
-
-        ## post-processing 2
+        bow_rep_dict = self._get_bow_rep_dict(vector)
+        return bow_rep_dict
 
     def _get_bow_rep_dict(self, vector):
         cols = torch.nonzero(vector)
@@ -84,7 +83,7 @@ class SpladeDocumentEncoder(DocumentEncoder):
             weights[i].append( (j, vector[i, j].cpu().tolist()) )
 
         def sort_dict(dictionary):
-            d = {k: v*self.quantization_factor for (k, v) in dictionary if v >= minimum}
+            d = {k: v*self.quantization_factor for (k, v) in dictionary if v >= self.minimum}
             sorted_d = {self.reverse_voc[k]: round(v, 2) for k, v in sorted(d.items(), key=lambda item: item[1], reverse=True)}
             return sorted_d
         return [sort_dict(weight) for i, weight in weights.items()]    

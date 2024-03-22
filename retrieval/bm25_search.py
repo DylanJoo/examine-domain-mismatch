@@ -54,3 +54,4 @@ if __name__ == '__main__':
         args.fields = dict()
 
     search(args)
+    print("Done")
