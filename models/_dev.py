@@ -8,10 +8,10 @@ from transformers import BertModel
 """
 Version 1
  - DPR-reader like start and end token extraction
- - Query: (1) segment representation (from CLS), and (2) span representation
-            - (a) `boundary_average`: a start and an end token average as span (SBO)
-            - (b) `span_select_average`: a start and an end token concatenation as span (DensePhrase)
-            - (c) `span_extract_average`: multiple tokens within the start and end token average as span (retrieval-specific)
+ - Query: segment representation (from CLS), and span representation
+        - (a) `boundary_average`: a start and an end token average as span (SBO)
+        - (b) `span_select_average`: a start and an end token concatenation as span (DensePhrase)
+        - (c) `span_extract_average`: multiple tokens within the start and end token average as span (retrieval-specific)
         - We will possibly need regularization to make this span as short as possible
  - Document: segment representation (from CLS)
 

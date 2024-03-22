@@ -1,10 +1,7 @@
 import os
 import torch
 from transformers import BertForMaskedLM
-
-def normalize(tensor, eps=1e-9):
-    """normalize input tensor on last dimension """
-    return tensor / (torch.norm(tensor, dim=-1, keepdim=True) + eps)
+import torch.nn as nn
 
 def splade_max(tensor, additional_mask=None):
     values, indices = torch.max(
@@ -14,11 +11,13 @@ def splade_max(tensor, additional_mask=None):
     return values
 
 class SpladeRep(BertForMaskedLM):
-    def __init__(self, config, pooling="average", **kwargs):
+    def __init__(self, config, pooling="max", **kwargs):
         super().__init__(config)
-        if not hasattr(config, "pooling"):
-            self.config.pooling = pooling
+        self.config.pooling = pooling
+        if pooling == 'max':
             self.pooler = splade_max
+        else:
+            self.pooler = nn.Identity
 
     def forward(
         self,
@@ -50,10 +49,8 @@ class SpladeRep(BertForMaskedLM):
 
         logits = model_output["logits"] # bsz seq_len V
         vector = logits.masked_fill(~attention_mask[..., None].bool(), 0.0)
-
-        if self.pooler:
-            vector = self.pooler(vector)
+        vector = self.pooler(vector)
 
         if normalize:
-            vector = normalize(vector)
+            vector = torch.nn.functional.normalize(vector, p=2, dim=-1)
         return vector
