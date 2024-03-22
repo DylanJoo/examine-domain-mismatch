@@ -4,16 +4,15 @@ from typing import Optional, Union
 from transformers import HfArgumentParser
 from transformers import AutoTokenizer
 
-# replace the argument parser to options
-# from arguments import ModelArgs, DataArgs, TrainArgs 
 from ind_cropping.options import ModelOptions, DataOptions, TrainOptions
 from ind_cropping.data import load_dataset, Collator
 
 from models import Contriever
-from models._dev import Contriever
 from models import InBatch
 from trainers import TrainerBase
 
+# development
+from models._dev import Contriever
 
 os.environ["WANDB_DISABLED"] = "false"
 
@@ -40,8 +39,9 @@ def main():
             data_collator=collator,
     )
     
-    # ***** strat training *****
-    results = trainer.train(resume_from_checkpoint=train_opt.resume_from_checkpoint)
+    results = trainer.train(
+            resume_from_checkpoint=train_opt.resume_from_checkpoint
+    )
 
     return results
 

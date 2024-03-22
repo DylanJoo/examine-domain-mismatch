@@ -13,6 +13,39 @@ class InBatch(nn.Module):
         self.tokenizer = tokenizer
         self.encoder = retriever
 
+    def forward(self, q_tokens, q_mask, k_tokens, k_mask, stats_prefix="", **kwargs):
+
+        bsz = len(q_tokens)
+        labels = torch.arange(0, bsz, dtype=torch.long, device=q_tokens.device)
+
+        qemb = self.encoder(input_ids=q_tokens, attention_mask=q_mask, normalize=self.norm_query)
+        kemb = self.encoder(input_ids=k_tokens, attention_mask=k_mask, normalize=self.norm_doc)
+
+        gather_fn = dist_utils.gather
+        gather_kemb = gather_fn(kemb)
+        labels = labels + dist_utils.get_rank() * len(kemb)
+
+        temperature = 1.0
+        scores = torch.einsum("id, jd->ij", qemb / temperature, gather_kemb)
+
+        loss = torch.nn.functional.cross_entropy(scores, labels, label_smoothing=self.label_smoothing)
+
+        predicted_idx = torch.argmax(scores, dim=-1)
+        accuracy = 100 * (predicted_idx == labels).float().mean()
+
+        return {'loss': loss, 'acc': accuracy}
+
+    def get_encoder(self):
+        return self.encoder
+
+class InBatchForSplade(InBatch):
+    """ Reminder: splade's additional parameters """
+
+    def forward(self, q_tokens, q_mask, k_tokens, k_mask, **kwargs):
+        return super().forward(q_tokens, q_mask, k_tokens, k_mask, **kwargs)
+
+class InBatchWithSpan(InBatch):
+
     def forward(self, q_tokens, q_mask, k_tokens, k_mask, **kwargs):
 
         bsz = len(q_tokens)
@@ -25,21 +58,21 @@ class InBatch(nn.Module):
 
         temperature = 1.0
         scores = torch.einsum("id, jd->ij", qemb / temperature, kemb)
-        loss_1 = torch.nn.functional.cross_entropy(scores, labels, label_smoothing=self.label_smoothing)
+        loss_0 = torch.nn.functional.cross_entropy(scores, labels, label_smoothing=self.label_smoothing)
 
         predicted_idx = torch.argmax(scores, dim=-1)
         accuracy = 100 * (predicted_idx == labels).float().mean()
 
-        # [modify] add loss
-        temperature = 1.0
-        sscores = torch.einsum("id, jd->ij", qsemb / temperature, kemb)
-        loss_2 = torch.nn.functional.cross_entropy(sscores, labels, label_smoothing=self.label_smoothing)
+        # [modify] add loss of (q-span, doc)
+        sscores_1 = torch.einsum("id, jd->ij", qsemb / temperature, kemb)
+        loss_1 = torch.nn.functional.cross_entropy(sscores_1, labels, label_smoothing=self.label_smoothing)
+
+        # [modify] add loss of (query, d-span)
+        sscores_2 = torch.einsum("id, jd->ij", qemb / temperature, ksemb)
+        loss_2 = torch.nn.functional.cross_entropy(sscores_2, labels, label_smoothing=self.label_smoothing)
 
         loss = loss_1 + loss_2
 
         return {'loss': loss, 'acc': accuracy, 
                 'loss_1': loss_1, 'loss_2': loss_2,
                 'q-span': qsids, 'k-span': ksids}
-
-    def get_encoder(self):
-        return self.encoder
