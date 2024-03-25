@@ -8,6 +8,7 @@ import random
 import json
 import csv
 import numpy as np
+import numpy.random
 import logging
 from collections import defaultdict
 import torch.distributed as dist
@@ -16,8 +17,11 @@ import torch.distributed as dist
 
 logger = logging.getLogger(__name__)
 
+
 def load_dataset(opt, tokenizer):
-    """ The original contriever has the multdataset settings.  """
+    """
+    The original contriever has the multdataset settings. 
+    """
     datasets = {}
     files = glob.glob(os.path.join(opt.train_data_dir, "*.p*"))
     files.sort()
@@ -50,7 +54,6 @@ class Dataset(torch.utils.data.Dataset):
         self.chunk_length = chunk_length
         self.tokenizer = tokenizer
         self.opt = opt
-        self.opt.mask_id = tokenizer.mask_token_id 
         self.generate_offset()
 
     def __len__(self):

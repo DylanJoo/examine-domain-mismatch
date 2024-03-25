@@ -1,3 +1,4 @@
+exp=""
 # Indexing 
 ## this should be done by multi-parallel process
 # python encode/dense.py input \
@@ -28,14 +29,14 @@
 #     --topic /home/dju/datasets/msmarco/queries.dev-subset.txt \
 #     --batch_size 32 \
 #     --device cuda \
-#     --output runs/baseline_contriever/run.msmarco-dev-subset.contriever.txt
+#     --output runs/${exp}contriever/run.msmarco-dev-subset.contriever.txt
 
 # Evaluation
 echo -ne "msmarco-dev-subset | "
 ~/trec_eval-9.0.7/trec_eval \
     -c -m ndcg_cut.10 -m recall.100 \
     /home/dju/datasets/msmarco/qrels.msmarco-passage.dev-subset.txt \
-    runs/baseline_contriever/run.msmarco-dev-subset.contriever.txt \
+    runs/${exp}contriever/run.msmarco-dev-subset.contriever.txt \
     | cut -f3 | sed ':a; N; $!ba; s/\n/ | /g'
 
 echo done

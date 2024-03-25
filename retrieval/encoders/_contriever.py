@@ -27,7 +27,7 @@ class ContrieverDocumentEncoder(DocumentEncoder):
         self.device = device
         self.model = AutoModel.from_pretrained(model_name_or_dir or 'facebook/contriever')
         self.model.to(self.device)
-        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name or model_name_or_dir)
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name or 'facebook/contriever')
         self.has_model = True
         self.pooling = pooling
         self.l2_norm = l2_norm
@@ -60,7 +60,7 @@ class ContrieverQueryEncoder(QueryEncoder):
         self.device = device
         self.model = AutoModel.from_pretrained(model_name_or_dir or 'facebook/contriever')
         self.model.to(self.device)
-        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name or model_name_or_dir)
+        self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name or 'facebook/contriever')
         self.pooling = pooling
         self.l2_norm = l2_norm
 

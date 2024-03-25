@@ -1,13 +1,13 @@
-
 ### BEIR 
-| Datasets                      | BM25    | Contriver | 
-| ---                           | ---     | ---       |  
-|                               | nDCG@10 | nDCG@10   | 
-| msmarco-dev-subset            | 0.2338  | 0.2055    |
-| beir-scifact                  | 0.6647  | 0.6394    |
-| beir-trec-covid               | 0.6534  | 0.2771    |
-| beir-scidocs                  | 0.1581  | 0.1509    |
 
+| Datasets                      | BM25   | BM25    | Contriver | Contriver | Contriver-MS | Contriver-MS | 
+| ---                           | ---    | ---     | ---       | ---       | ---          | ---          |
+|                               | R@10   | nDCG@10 | R@10      | nDCG@10   | R@10         | nDCG@10      |
+| beir-scifact                  | 0.9076 | 0.6647  | |  | 0.6394    |     
+| beir-trec-covid               | 0.1142 | 0.6534  | |  | 0.2771    |     
+| beir-scidocs                  | 0.3561 | 0.1581  | |  | 0.1509    |     
+| msmarco-dev-subset            | 0.6703 | 0.2338  | |  | 0.2055    |     
+> All scores are reproduced.
 
 ### Lotte-test
 | Datasets                      | BM25    | Contriver | 
@@ -36,6 +36,7 @@
 | lotte-recreation-dev.forum    | 0.2660  |           |
 | lotte-technology-dev.search   | 0.2183  |           |
 | lotte-technology-dev.forum    | 0.1107  |           |
+> All scores are reproduced.
 
 # Additional results (ref: colbert-v2)
 ```

@@ -4,17 +4,13 @@ from typing import Optional, Union
 from transformers import HfArgumentParser
 from transformers import AutoTokenizer
 
-# replace the argument parser to options
-# from arguments import ModelArgs, DataArgs, TrainArgs 
-from ind_cropping.options import ModelOptions, DataOptions, TrainOptions
-from ind_cropping.data import load_dataset, Collator
-
 from models import Contriever
 from models import InBatch
 from trainers import TrainerBase
 
-
-os.environ["WANDB_DISABLED"] = "false"
+## [todo] merge these if possible
+from rand_cropping.options import ModelOptions, DataOptions, TrainOptions
+from rand_cropping.data import load_dataset, Collator
 
 def main():
 
@@ -29,7 +25,11 @@ def main():
     # [Data] train/eval datasets, collator, preprocessor
     train_dataset = load_dataset(data_opt, tokenizer)
     eval_dataset = None
-    collator = Collator(opt=data_opt)
+    collator = Collator(
+            opt=data_opt,
+            tokenizer=tokenizer,
+            mlm_probability=data_opt.mlm_probability
+    )
 
     trainer = TrainerBase(
             model=model, 
@@ -39,10 +39,18 @@ def main():
             data_collator=collator,
     )
     
-    # ***** strat training *****
-    results = trainer.train(resume_from_checkpoint=train_opt.resume_from_checkpoint)
+    # [Training]
+    trainer.train(resume_from_checkpoint=train_opt.resume_from_checkpoint)
+    trainer.save_model(os.path.join(train_opt.output_dir))
 
-    return results
+    final_path = train_opt.output_dir
+    if  trainer.is_world_process_zero():
+        with open(os.path.join(final_path, "model_opt.json"), "w") as write_file:
+            json.dump(asdict(model_opt), write_file, indent=4)
+        with open(os.path.join(final_path, "data_opt.json"), "w") as write_file:
+            json.dump(asdict(data_opt), write_file, indent=4)
+        with open(os.path.join(final_path, "train_opt.json"), "w") as write_file:
+            json.dump(train_opt.to_dict(), write_file, indent=4)
 
 if __name__ == '__main__':
     main()
