@@ -26,7 +26,7 @@ import sys
 class ContrieverDocumentEncoder(DocumentEncoder):
     def __init__(self, model_name_or_dir, tokenizer_name=None, device='cuda:0', pooling='mean', l2_norm=False):
         self.device = device
-        self.model = AutoModel.from_pretrained(model_name_or_dir or 'facebook/contriever')
+        self.model = AutoModel.from_pretrained(model_name_or_dir or 'facebook/contriever', add_pooling_layer=False)
         self.model.to(self.device)
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name or 'facebook/contriever')
         self.has_model = True
@@ -62,7 +62,7 @@ class ContrieverDocumentEncoder(DocumentEncoder):
 class ContrieverQueryEncoder(QueryEncoder):
     def __init__(self, model_name_or_dir, tokenizer_name=None, device='cpu', pooling='mean', l2_norm=False):
         self.device = device
-        self.model = AutoModel.from_pretrained(model_name_or_dir or 'facebook/contriever')
+        self.model = AutoModel.from_pretrained(model_name_or_dir or 'facebook/contriever', add_pooling_layer=False)
         self.model.to(self.device)
         self.tokenizer = AutoTokenizer.from_pretrained(tokenizer_name or 'facebook/contriever')
         self.pooling = pooling
