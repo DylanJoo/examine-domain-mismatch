@@ -20,6 +20,7 @@ import torch
 from pyserini.encode import DocumentEncoder
 from pyserini.search.faiss import QueryEncoder
 from transformers import AutoModel, AutoTokenizer
+from sklearn.preprocessing import normalize
 import sys
 
 class ContrieverDocumentEncoder(DocumentEncoder):
@@ -33,6 +34,10 @@ class ContrieverDocumentEncoder(DocumentEncoder):
         self.l2_norm = l2_norm
 
     def encode(self, texts=None, titles=None, max_length=256, **kwargs):
+        """
+        As we would like to generalize encoder to all the other domains, 
+        we did not use the [SEP] token to seperate the title and content (texts).
+        """
         if titles is not None: 
             texts = [f'{title} {text}'.strip() for title, text in zip(titles, texts)]
 
@@ -43,8 +48,7 @@ class ContrieverDocumentEncoder(DocumentEncoder):
             truncation=True,
             add_special_tokens=True,
             return_tensors='pt'
-        )
-        inputs.to(self.device) 
+        ).to(self.device) 
         outputs = self.model(**inputs)
 
         if self.pooling == "mean":

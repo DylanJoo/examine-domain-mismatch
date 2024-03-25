@@ -1,9 +1,23 @@
 import os
 import torch
 import transformers
+import torch.nn as nn
 from transformers import BertModel
 
 
+"""
+Version 1
+ - DPR-reader like start and end token extraction
+ - Query: segment representation (from CLS), and span representation
+        - (a) `boundary_average`: a start and an end token average as span (SBO)
+        - (b) `span_select_average`: a start and an end token concatenation as span (DensePhrase)
+        - (c) `span_extract_average`: multiple tokens within the start and end token average as span (retrieval-specific)
+        - We will possibly need regularization to make this span as short as possible
+ - Document: segment representation (from CLS)
+
+Version 2
+ - Binary token classification layer
+"""
 
 class Contriever(BertModel):
     def __init__(self, config, pooling="average", **kwargs):
@@ -11,9 +25,17 @@ class Contriever(BertModel):
         if not hasattr(config, "pooling"):
             self.config.pooling = pooling
 
-        ## Exp1: span extraction: add start/end token layers for encoder
-        ### (a) automatic: distill spans that has higher correlation to the cls embeddings
-        self.span_outputs = nn.Linear(self.encoder.embeddings_size, 2)
+        if pooling == "cls_boundary_average":
+            self.outputs = nn.Linear(self.config.hidden_size, 2)
+        elif pooling == "cls_span_select_average":
+            self.outputs = nn.sequential(
+                    nn.Linear(self.config.hidden_size, 1),
+                    nn.Sigmoid()
+            )
+        elif pooling == "cls_span_extract_average":
+            self.outputs = nn.Linear(self.config.hidden_size, 2)
+        else:
+            self.outputs = None
 
     def forward(
         self,
@@ -43,37 +65,52 @@ class Contriever(BertModel):
             output_hidden_states=output_hidden_states,
         )
 
-        last_hidden = model_output["last_hidden_state"]
-        last_hidden = last_hidden.masked_fill(~attention_mask[..., None].bool(), 0.0)
+        last_hidden_states = model_output["last_hidden_state"]
+        last_hidden = last_hidden_states.masked_fill(~attention_mask[..., None].bool(), 0.0)
 
-        if self.config.pooling == "average":
-            emb = last_hidden.sum(dim=1) / attention_mask.sum(dim=1)[..., None]
-        elif self.config.pooling == "cls":
+        bsz, seq_len = input_ids.size() if input_ids is not None else inputs_embeds.size()[:2]
+        emb_size = last_hidden.size(-1)
+
+        elif self.config.pooling == "cls_boundary_average":
             emb = last_hidden[:, 0]
+            logits = self.outputs(last_hidden_states[:, 1:-1, :]) # exclude CLS and SEP
+            start_logits, end_logits = logits.split(1, dim=-1)
+            start_logits = start_logits.squeeze(-1).contiguous()
+            end_logits = end_logits.squeeze(-1).contiguous()
+            
+            ## resize
+            start_id = start_logits.view(bsz, seq_len-2).argmax(-1) # bsz 1
+            end_id = end_logits.view(bsz, seq_len-2).argmax(-1)
 
-        elif self.config.pooling == "cls-span_average":
+            failed_span_mask = torch.where(end_id > start_id, 1.0, 0.0)
+            span_ids = torch.cat([start_id, end_id], dim=-1).view(2, -1)
+            span_emb = last_hidden_states[:, 1:-1, :].gather(
+                    1, span_ids.permute(1, 0)[..., None].repeat(1,1,emb_size)
+            ).mean(1)
+            span_emb = span_emb * failed_span_mask.view(-1, 1)
+
+        elif self.config.pooling == "cls_span_select_average": # may need to add constraints
             emb = last_hidden[:, 0]
+            select_prob = self.outputs(last_hidden_states[:, 1:-1, :]) # exclude CLS and SEP
+            span_emb = torch.mean(last_hidden_states * select_prob[..., None], dim=1) # bsz L(to 1) H
 
-            # span's embeddings from multivectors
-            n_passages, sequence_length = input_ids.size() \
-                    if input_ids is not None else inputs_embeds.size()[:2]
+        elif self.config.pooling == "cls_span_extract_average":
+            emb = last_hidden[:, 0]
+            logits = self.outputs(last_hidden_states[:, 1:-1, :]) # exclude CLS and SEP
+            start_logits, end_logits = logits.split(1, dim=-1)
+            start_logits = start_logits.squeeze(-1).contiguous()
+            end_logits = end_logits.squeeze(-1).contiguous()
 
-            # compute logits 
-            ## [note] remove the first CLS token
-            ## start/end logits: (B, L, 1).squeeze()
-            span_logits = self.span_outputs(last_hidden[:, 1:])
-            start_logits, end_logits = span_logits.split(1, dim=-1)
-            start_logits = start_logits.squeeze(-1).continuous()
-            end_logits = end_logits.squeeze(-1).continuous()
+            ## resize
+            start_id = start_logits.view(bsz, seq_len-2).argmax(-1)
+            end_id = end_logits.view(bsz, seq_len-2).argmax(-1)
+            ordered = torch.arange(seq_len).repeat(bsz).reshape(bsz, seq_len)
+            extract_span_mask = (start_id <= ordered) & (ordered <= end_id)
+
+            span_emb = torch.mean(last_hidden_states[:, 1:-1, :] * extract_span_mask.unsqueeze(-1), dim=1)
 
         if normalize:
             emb = torch.nn.functional.normalize(emb, dim=-1)
-        return emb
 
-    def forward_span_emb(self, last_hidden_states, start_logits, end_logits):
-        start_ids = start_logits.argmax(-1)
-        end_ids = end_logits.argmax(-1)
-        span_ids = torch.cat([start_ids, end_ids]).view(2, -1)
-        span_emb = 0
-        return span_emb
+        return emb, span_emb, span_ids
 

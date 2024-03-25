@@ -4,14 +4,18 @@ from typing import Optional, Union
 from transformers import HfArgumentParser
 from transformers import AutoTokenizer
 
+# replace the argument parser to options
+# from arguments import ModelArgs, DataArgs, TrainArgs 
+from ind_cropping.options import ModelOptions, DataOptions, TrainOptions
+from ind_cropping.data import load_dataset, Collator
+
 from models import Contriever
 from models._dev import Contriever
 from models import InBatch
 from trainers import TrainerBase
 
-## [todo] merge these if possible
-from ind_cropping.options import ModelOptions, DataOptions, TrainOptions
-from ind_cropping.data import load_dataset, Collator
+
+os.environ["WANDB_DISABLED"] = "false"
 
 def main():
 
@@ -36,18 +40,10 @@ def main():
             data_collator=collator,
     )
     
-    # [Training]
-    trainer.train(resume_from_checkpoint=train_opt.resume_from_checkpoint)
-    trainer.save_model(os.path.join(train_opt.output_dir))
+    # ***** strat training *****
+    results = trainer.train(resume_from_checkpoint=train_opt.resume_from_checkpoint)
 
-    final_path = train_opt.output_dir
-    if  trainer.is_world_process_zero():
-        with open(os.path.join(final_path, "model_opt.json"), "w") as write_file:
-            json.dump(asdict(model_opt), write_file, indent=4)
-        with open(os.path.join(final_path, "data_opt.json"), "w") as write_file:
-            json.dump(asdict(data_opt), write_file, indent=4)
-        with open(os.path.join(final_path, "train_opt.json"), "w") as write_file:
-            json.dump(train_opt.to_dict(), write_file, indent=4)
+    return results
 
 if __name__ == '__main__':
     main()

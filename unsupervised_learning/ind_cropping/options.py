@@ -9,9 +9,10 @@ class ModelOptions:
     model_name: Optional[str] = field(default=None)
     model_path: Optional[str] = field(default=None)
     tokenizer_name: Optional[str] = field(default=None)
-    pooling: Optional[str] = field(default='average')
+    pooling: Optional[str] = field(default="average")
     norm_doc: Optional[bool] = field(default=False)
     norm_query: Optional[bool] = field(default=False)
+    output_span: Optional[bool] = field(default=False)
 
 @dataclass
 class DataOptions:
