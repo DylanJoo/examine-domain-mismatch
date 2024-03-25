@@ -24,10 +24,6 @@ class InBatch(nn.Module):
         qemb = self.encoder(input_ids=q_tokens, attention_mask=q_mask, normalize=self.norm_query)
         kemb = self.encoder(input_ids=k_tokens, attention_mask=k_mask, normalize=self.norm_doc)
 
-        # gather_fn = dist_utils.gather
-        # gather_kemb = gather_fn(kemb)
-        # labels = labels + dist_utils.get_rank() * len(kemb)
-
         temperature = 1.0
         scores = torch.einsum("id, jd->ij", qemb / temperature, kemb)
 

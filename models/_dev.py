@@ -71,7 +71,7 @@ class Contriever(BertModel):
         bsz, seq_len = input_ids.size() if input_ids is not None else inputs_embeds.size()[:2]
         emb_size = last_hidden.size(-1)
 
-        elif self.config.pooling == "cls_boundary_average":
+        if self.config.pooling == "cls_boundary_average":
             emb = last_hidden[:, 0]
             logits = self.outputs(last_hidden_states[:, 1:-1, :]) # exclude CLS and SEP
             start_logits, end_logits = logits.split(1, dim=-1)

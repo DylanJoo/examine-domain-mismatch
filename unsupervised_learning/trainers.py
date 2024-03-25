@@ -52,9 +52,8 @@ class TrainerBase(Trainer):
 
         if self.state.global_step % 10 == 0:
             logger.info(f"loss: {outputs['loss'].item()} | acc: {outputs['acc']}")
-            logger.info(f"loss-seg: {outputs['loss_1'].item()} | loss-span: {outputs['loss_2'].item()}")
-            logger.info(outputs['q-span'])
-            logger.info(outputs['k-span'])
+            for key in [k for k in outputs.keys() if k not in ['loss', 'acc', 'q-span', 'k-span']]:
+                logger.info(f"{key}: {outputs[key].item()}")
 
         return (loss, outputs) if return_outputs else loss
 
