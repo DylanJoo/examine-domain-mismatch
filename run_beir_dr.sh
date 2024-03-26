@@ -8,39 +8,40 @@ encoder=facebook/contriever
 # development setup
 # [todo] rerun the cls variants bc of the indexing and searching pooling
 exp=ind-cropping-cls-
-encoder=/home/dju/examine-domain-mismatch/models/ckpt/contriever-${exp}trec-covid/checkpoint-10000
+encoder=/home/dju/examine-domain-mismatch/models/ckpt/contriever-${exp}trec-covid
 
-# for dataset in scifact trec-covid scidocs;do
-for dataset in trec-covid;do
-
-    echo indexing...${dataset}
-    python3 retrieval/dense_index.py input \
-        --corpus ${data_dir}/${dataset}/collection \
-        --fields text title \
-        --shard-id 0 \
-        --shard-num 1 output \
-        --embeddings ${index_dir}/${dataset}-${exp}contriever.faiss \
-        --to-faiss encoder \
-        --encoder-class contriever \
-        --encoder ${encoder} \
-        --fields text title \
-        --batch 32 \
-        --max-length 256 \
-        --device cuda
-
-    echo searching...${dataset}
-    python retrieval/dense_search.py \
-        --k 1000  \
-        --index ${index_dir}/${dataset}-${exp}contriever.faiss \
-        --encoder_path ${encoder} \
-        --topic ${data_dir}/${dataset}/queries.jsonl \
-        --batch_size 64 \
-        --device cuda \
-        --output runs/${exp}contriever/run.beir.${dataset}.${exp}contriever.txt
-done
+# for exp in ind-cropping-delete- ind-cropping-mask- ind-cropping- rand-cropping-; do
+# for dataset in trec-covid;do
+#
+#     echo indexing...${dataset}...${exp}
+#     python3 retrieval/dense_index.py input \
+#         --corpus ${data_dir}/${dataset}/collection \
+#         --fields text title \
+#         --shard-id 0 \
+#         --shard-num 1 output \
+#         --embeddings ${index_dir}/${dataset}-${exp}contriever.faiss \
+#         --to-faiss encoder \
+#         --encoder-class contriever \
+#         --encoder ${encoder} \
+#         --pooling cls \
+#         --fields text title \
+#         --batch 32 \
+#         --max-length 256 \
+#         --device cuda
+#
+#     echo searching...${dataset}
+#     python retrieval/dense_search.py \
+#         --k 1000  \
+#         --index ${index_dir}/${dataset}-${exp}contriever.faiss \
+#         --encoder_path ${encoder} \
+#         --topic ${data_dir}/${dataset}/queries.jsonl \
+#         --batch_size 64 \
+#         --pooling cls \
+#         --device cuda \
+#         --output runs/${exp}contriever/run.beir.${dataset}.${exp}contriever.txt
+# done
 
 # Evaluation
-# for dataset in scifact trec-covid scidocs;do
 for dataset in trec-covid;do
 
     echo -ne "beir-${dataset}  | " 

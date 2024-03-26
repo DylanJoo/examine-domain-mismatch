@@ -53,7 +53,7 @@ class ContrieverDocumentEncoder(DocumentEncoder):
 
         if self.pooling == "mean":
             embeddings = self._mean_pooling(outputs[0], inputs['attention_mask']).detach().cpu().numpy()
-        else:
+        elif self.pooling == 'cls':
             embeddings = outputs[0][:, 0, :].detach().cpu().numpy()
         if self.l2_norm:
             embeddings = normalize(embeddings, axis=1, norm='l2')
@@ -82,7 +82,7 @@ class ContrieverQueryEncoder(QueryEncoder):
 
         if self.pooling == "mean":
             embeddings = self._mean_pooling(outputs, inputs['attention_mask']).detach().cpu().numpy()
-        else:
+        elif self.pooling == 'cls':
             embeddings = outputs[0][:, 0, :].detach().cpu().numpy()
         if self.l2_norm:
             faiss.normalize_L2(embeddings)

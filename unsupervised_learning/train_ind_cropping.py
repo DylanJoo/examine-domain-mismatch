@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 from typing import Optional, Union
 from transformers import HfArgumentParser
 from transformers import AutoTokenizer
@@ -11,6 +12,9 @@ from trainers import TrainerBase
 ## [todo] merge these if possible
 from ind_cropping.options import ModelOptions, DataOptions, TrainOptions
 from ind_cropping.data import load_dataset, Collator
+
+os.environ["WANDB_PROJECT"]="SSL4LEDR"
+
 
 def main():
 

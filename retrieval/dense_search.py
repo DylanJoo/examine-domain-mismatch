@@ -57,6 +57,8 @@ if __name__ == '__main__':
     parser.add_argument("--batch_size", default=1, type=int)
     parser.add_argument("--output", default=None, type=str)
     parser.add_argument("--device", default='cpu', type=str)
+    # additiona model setup
+    parser.add_argument("--pooling", default='cls', type=None)
     args = parser.parse_args()
 
     os.makedirs(args.output.rsplit('/', 1)[0], exist_ok=True)
