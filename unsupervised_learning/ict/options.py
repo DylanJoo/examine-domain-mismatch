@@ -1,3 +1,6 @@
+# This file is based on `options` is from `ind_cropping.options`
+# See the original one for details.
+
 import os
 import sys
 from dataclasses import dataclass, field
@@ -9,18 +12,23 @@ class ModelOptions:
     model_name: Optional[str] = field(default=None)
     model_path: Optional[str] = field(default=None)
     tokenizer_name: Optional[str] = field(default=None)
+    pooling: Optional[str] = field(default='mean')
     norm_doc: Optional[bool] = field(default=False)
     norm_query: Optional[bool] = field(default=False)
 
 @dataclass
 class DataOptions:
-    train_data_dir: Optional[str] = field(default='/home/dju/datasets/test_collection/bert-base-uncased')
+    positive_sampling: Optional[str] = field(default='rand_cropping')
+    train_data_dir: Optional[str] = field(default=None)
     eval_data_dir: Optional[str] = field(default=None)
-    loading_mode: Optional[str] = field(default="full")
+    # loading_mode: Optional[str] = field(default="full")
     chunk_length: Optional[int] = field(default=256)
     ratio_min: Optional[float] = field(default=0.1)
     ratio_max: Optional[float] = field(default=0.5)
     augmentation: Optional[str] = field(default=None)
+    prob_augmentation: Optional[float] = field(default=0.0)
+    # additional options
+    query_in_block_prob: Optional[float] = field(default=0.1)
 
 @dataclass
 class TrainOptions(TrainingArguments):

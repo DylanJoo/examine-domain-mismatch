@@ -26,6 +26,7 @@ class InBatch(nn.Module):
 
     def forward(self, q_tokens, q_mask, k_tokens, k_mask, stats_prefix="", **kwargs):
 
+        # this is for random cropping
         if (k_tokens is None) and (k_mask is None):
             return self.forward_bidirectional(q_tokens, q_mask, **kwargs)
 
@@ -50,7 +51,6 @@ class InBatch(nn.Module):
         """ 
 
         bsz = len(tokens)
-        # labels = torch.arange(0, bsz, dtype=torch.long, device=tokens.device)
         labels = torch.arange(bsz, dtype=torch.long, device=tokens.device).view(-1, 2).flip([1]).flatten().contiguous()
 
         emb = self.encoder(input_ids=tokens, attention_mask=mask, normalize=self.norm_query)

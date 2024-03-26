@@ -1,84 +1,91 @@
-# Copyright (c) Facebook, Inc. and its affiliates. All Rights Reserved
-# /home/dju/datasets/test_collection/bert-base-uncased/corpus.jsonl01.pkl
-
 import os
-import glob
 import torch
 import random
-import json
-import csv
+import itertools
 import numpy as np
-import numpy.random
 import logging
+import glob
 from collections import defaultdict
-import torch.distributed as dist
+from transformers import DataCollatorForWholeWordMask
 
-# from src import dist_utils
 
 logger = logging.getLogger(__name__)
 
-
 def load_dataset(opt, tokenizer):
-    """
-    The original contriever has the multdataset settings. 
-    """
-    datasets = {}
-    files = glob.glob(os.path.join(opt.train_data_dir, "*.p*"))
-    files.sort()
-    tensors = []
-    if opt.loading_mode == "split":
-        files_split = list(np.array_split(files, dist_utils.get_world_size()))[dist_utils.get_rank()]
-        for filepath in files_split:
-            try:
-                tensors.append(torch.load(filepath, map_location="cpu"))
-            except:
-                logger.warning(f"Unable to load file {filepath}")
-    elif opt.loading_mode == "full":
-        for fin in files:
-            tensors.append(torch.load(fin, map_location="cpu"))
-    elif opt.loading_mode == "single":
-        tensors.append(torch.load(files[0], map_location="cpu"))
-
-    if len(tensors) == 0:
-        return None
-    tensor = torch.cat(tensors)
-    return Dataset(tensor, opt.chunk_length, tokenizer, opt)
-
+    files = glob.glob(os.path.join(opt.train_data_dir, "*")) 
+    return Dataset(files[0], opt.chunk_length, tokenizer, opt)
 
 class Dataset(torch.utils.data.Dataset):
-    """Monolingual dataset based on a list of paths"""
+    """The dataset for ICT is based on random cropping.
+    However, we select a span as query, and leave the other as the context (the document)
+    Some details are based on the Megatron-LM implementation (see here: https://github.com/NVIDIA/Megatron-LM/blob/main/megatron/data/ict_dataset.py)
 
-    def __init__(self, data, chunk_length, tokenizer, opt):
+    The option's parameters are:
+        - augmentation: 'none'
+    """
 
-        self.data = data
+    def __init__(self, path, chunk_length, tokenizer, opt):
+        # [todo] is this the most handy way to load dataset? inherit?
+        from datasets import load_dataset as load
+        self.data = load('json', 
+            data_files=path, 
+            ignore_verifications=True,
+            keep_in_memory=True)['train']
         self.chunk_length = chunk_length
         self.tokenizer = tokenizer
+        self.query_in_block_prob = opt.query_in_block_prob
+        self.use_one_sent_docs = False
+        self.binary_head = False
+        self.rng = random.Random(42)
         self.opt = opt
-        self.generate_offset()
 
     def __len__(self):
-        return (self.data.size(0) - self.offset) // self.chunk_length
+        return len(self.data)
 
     def __getitem__(self, index):
-        start_idx = self.offset + index * self.chunk_length
-        end_idx = start_idx + self.chunk_length
-        tokens = self.data[start_idx:end_idx]
-        q_tokens = randomcrop(tokens, self.opt.ratio_min, self.opt.ratio_max)
-        k_tokens = randomcrop(tokens, self.opt.ratio_min, self.opt.ratio_max)
-        q_tokens = apply_augmentation(q_tokens, self.opt)
-        q_tokens = add_bos_eos(q_tokens, self.tokenizer.bos_token_id, self.tokenizer.eos_token_id)
-        k_tokens = apply_augmentation(k_tokens, self.opt)
-        k_tokens = add_bos_eos(k_tokens, self.tokenizer.bos_token_id, self.tokenizer.eos_token_id)
+        spans_in_doc = self.data[index]['spans']
+        rand_sent_idx = self.rng.randint(0, len(spans_in_doc) - 1) 
+        # [todo] maybe it's better to select the top and bottom?
 
-        return {"q_tokens": q_tokens, "k_tokens": k_tokens}
+        if self.rng.random() < self.query_in_block_prob:
+            query = spans_in_doc[rand_sent_idx].copy() # presever it 10%
+        else:
+            query = spans_in_doc.pop(rand_sent_idx) # discard it 90%
 
-    def generate_offset(self):
-        self.offset = random.randint(0, self.chunk_length - 1)
+        query = self.truncate(query)
+        query = add_bos_eos(query, self.tokenizer.bos_token_id, self.tokenizer.eos_token_id)
+
+        context = list(itertools.chain(*spans_in_doc))
+        context = apply_augmentation(context, self.opt)
+        context = self.truncate(context)
+        context = add_bos_eos(context, self.tokenizer.bos_token_id, self.tokenizer.eos_token_id)
+
+        return {"query": query, "context": context}
+
+    def truncate(self, example):
+        tgt_len = self.chunk_length - self.tokenizer.num_special_tokens_to_add(False)
+        if len(example) <= tgt_len:
+            return example
+        trunc = len(example) - tgt_len
+        trunc_left = random.randint(0, trunc)
+        trunc_right = trunc - trunc_left
+
+        truncated = example[trunc_left:]
+        if trunc_right > 0:
+            truncated = truncated[:-trunc_right]
+
+        if not len(truncated) == tgt_len:
+            print(len(example), len(truncated), trunc_left, trunc_right, tgt_len, flush=True)
+            raise ValueError
+        return truncated
 
 
-class Collator(object):
-    def __init__(self, opt):
+class Collator(DataCollatorForWholeWordMask):
+
+    def __init__(self, opt, tokenizer, **kwargs):
         self.opt = opt
+        self.do_mlm = False
+        super().__init__(tokenizer, **kwargs)
 
     def __call__(self, batch_examples):
 
@@ -87,25 +94,15 @@ class Collator(object):
             for k, v in example.items():
                 batch[k].append(v)
 
-        q_tokens, q_mask = build_mask(batch["q_tokens"])
-        k_tokens, k_mask = build_mask(batch["k_tokens"])
+        q_tokens, q_mask = build_mask(batch["query"])
+        ctx_tokens, ctx_mask = build_mask(batch["context"])
 
         batch["q_tokens"] = q_tokens
         batch["q_mask"] = q_mask
-        batch["k_tokens"] = k_tokens
-        batch["k_mask"] = k_mask
+        batch["k_tokens"] = ctx_tokens
+        batch["k_mask"] = ctx_mask
 
         return batch
-
-
-def randomcrop(x, ratio_min, ratio_max):
-
-    ratio = random.uniform(ratio_min, ratio_max)
-    length = int(len(x) * ratio)
-    start = random.randint(0, len(x) - length)
-    end = start + length
-    crop = x[start:end].clone()
-    return crop
 
 
 def build_mask(tensors):
@@ -119,7 +116,6 @@ def build_mask(tensors):
     ids = torch.stack(ids, dim=0).long()
     returnmasks = torch.stack(returnmasks, dim=0).bool()
     return ids, returnmasks
-
 
 def add_token(x, token):
     x = torch.cat((torch.tensor([token]), x))
@@ -185,24 +181,3 @@ def add_bos_eos(x, bos_token_id, eos_token_id):
     else:
         x = torch.cat([torch.tensor([bos_token_id]), x.clone().detach(), torch.tensor([eos_token_id])])
     return x
-
-
-# Used for passage retrieval
-def load_passages(path):
-    if not os.path.exists(path):
-        logger.info(f"{path} does not exist")
-        return
-    logger.info(f"Loading passages from: {path}")
-    passages = []
-    with open(path) as fin:
-        if path.endswith(".jsonl"):
-            for k, line in enumerate(fin):
-                ex = json.loads(line)
-                passages.append(ex)
-        else:
-            reader = csv.reader(fin, delimiter="\t")
-            for k, row in enumerate(reader):
-                if not row[0] == "id":
-                    ex = {"id": row[0], "title": row[2], "text": row[1]}
-                    passages.append(ex)
-    return passages

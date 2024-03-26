@@ -52,8 +52,11 @@ class TrainerBase(Trainer):
 
         if self.state.global_step % 10 == 0:
             logger.info(f"loss: {outputs['loss'].item()} | acc: {outputs['acc']}")
-            for k, v in outputs['losses'].items():
-                logger.info(f"{k}: {v.item()}")
+            self.log({"loss": outputs['loss'].item(), "acc": outputs['acc']})
+            if outputs.get('losses', None):
+                for k, v in outputs['losses'].items():
+                    logger.info(f"{k}: {v.item()}")
+                    self.log({f"{k}": v.item()})
 
         return (loss, outputs) if return_outputs else loss
 

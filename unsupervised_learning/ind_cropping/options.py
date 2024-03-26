@@ -9,7 +9,7 @@ class ModelOptions:
     model_name: Optional[str] = field(default=None)
     model_path: Optional[str] = field(default=None)
     tokenizer_name: Optional[str] = field(default=None)
-    pooling: Optional[str] = field(default="average")
+    pooling: Optional[str] = field(default="mean")
     norm_doc: Optional[bool] = field(default=False)
     norm_query: Optional[bool] = field(default=False)
     output_span: Optional[bool] = field(default=False)
@@ -25,7 +25,6 @@ class DataOptions:
     ratio_max: Optional[float] = field(default=0.5)
     augmentation: Optional[str] = field(default=None)
     prob_augmentation: Optional[float] = field(default=0.0)
-
 
 @dataclass
 class TrainOptions(TrainingArguments):

@@ -4,12 +4,12 @@ import json
 from typing import Optional, Union
 from transformers import HfArgumentParser
 from transformers import AutoTokenizer
+from dataclasses import asdict
 
 from models import Contriever
 from models import InBatch
 from trainers import TrainerBase
 
-## [todo] merge these if possible
 from rand_cropping.options import ModelOptions, DataOptions, TrainOptions
 from rand_cropping.data import load_dataset, Collator
 
