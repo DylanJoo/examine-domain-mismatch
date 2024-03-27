@@ -13,6 +13,7 @@ class ModelOptions:
     norm_doc: Optional[bool] = field(default=False)
     norm_query: Optional[bool] = field(default=False)
     output_span: Optional[bool] = field(default=False)
+    distil_from_sentence: Optional[bool] = field(default=False)
 
 @dataclass
 class DataOptions:

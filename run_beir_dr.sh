@@ -1,13 +1,10 @@
 index_dir=/home/dju/indexes/beir
 data_dir=/home/dju/datasets/beir
 
-# baseline setup
-exp=""
-encoder=facebook/contriever
-
-for exp in ind-cropping-cls_boundary_average- ind-cropping-cls_span_extract_average- ind-cropping-cls_span_select_average-;do
+for exp in ind-cropping- ict-;do
 
     encoder=/home/dju/examine-domain-mismatch/models/ckpt/contriever-${exp}trec-covid
+    pooling=mean
 
     for dataset in trec-covid;do
 
@@ -21,7 +18,7 @@ for exp in ind-cropping-cls_boundary_average- ind-cropping-cls_span_extract_aver
             --to-faiss encoder \
             --encoder-class contriever \
             --encoder ${encoder} \
-            --pooling cls \
+            --pooling ${pooling} \
             --fields text title \
             --batch 32 \
             --max-length 256 \
@@ -34,7 +31,7 @@ for exp in ind-cropping-cls_boundary_average- ind-cropping-cls_span_extract_aver
             --encoder_path ${encoder} \
             --topic ${data_dir}/${dataset}/queries.jsonl \
             --batch_size 64 \
-            --pooling cls \
+            --pooling ${pooling} \
             --device cuda \
             --output runs/${exp}contriever/run.beir.${dataset}.${exp}contriever.txt
     done
