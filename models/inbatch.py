@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import random
 from dataclasses import dataclass
 from typing import Optional, Tuple, Dict
@@ -66,7 +67,6 @@ class InBatch(nn.Module):
 
         return {'loss': loss, 'acc': accuracy}
 
-
     def get_encoder(self):
         return self.encoder
 
@@ -87,30 +87,40 @@ class InBatchWithSpan(InBatch):
         CELoss = nn.CrossEntropyLoss(label_smoothing=self.label_smoothing)
         KLLoss = nn.KLDivLoss(reduction='batchmean')
 
-        # [modify]
         qemb, qsemb, qsids = self.encoder(input_ids=q_tokens, attention_mask=q_mask, normalize=self.norm_query)
         kemb, ksemb, ksids = self.encoder(input_ids=k_tokens, attention_mask=k_mask, normalize=self.norm_doc)
-        # [modify]
 
+        # [sentence]
         temperature = 1.0
         scores = torch.einsum("id, jd->ij", qemb / temperature, kemb)
         loss_0 = CELoss(scores, labels)
-
         predicted_idx = torch.argmax(scores, dim=-1)
         accuracy = 100 * (predicted_idx == labels).float().mean()
 
-        # [modify] add loss of (q-span, doc)
-        sscores_1 = torch.einsum("id, jd->ij", qsemb / temperature, kemb)
-        loss_1 = CELoss(sscores_1, labels)
+        # [span]
+        if self.opt.distil_from_sentence:
+            probs_sents = F.softmax(scores, dim=1)
+            scores_spans = torch.einsum("id, jd->ij", qsemb / temperature, ksemb)
+            logits_spans = F.log_softmax(scores_spans, dim=1)
+            loss_span = KLLoss(logits_spans, probs_sents)
 
-        # [modify] add loss of (query, d-span)
-        sscores_2 = torch.einsum("id, jd->ij", qemb / temperature, ksemb)
-        loss_2 = CELoss(sscores_2, labels)
+            losses = {'loss_sent': loss_0, 'loss_span(kl)': loss_span}
+        else:
+            ## add loss of (q-span, doc) ## add loss of (query, d-span)
+            sscores_1 = torch.einsum("id, jd->ij", qsemb / temperature, kemb)
+            loss_1 = CELoss(sscores_1, labels)
+            sscores_2 = torch.einsum("id, jd->ij", qemb / temperature, ksemb)
+            loss_2 = CELoss(sscores_2, labels)
+            loss_span = (loss_1 + loss_2) / 2
 
-        loss = loss_0 + loss_1 + loss_2
+            losses = {'loss_sent': loss_0, 'loss_spans(ctra)': loss_span}
+
+        loss = loss_0 + loss_span
 
         return InBatchOutput(
-	        loss=loss, acc=accuracy,
-	        losses={'loss_seg': loss_0, 'loss_qspan': loss_1, 'loss_kspan': loss_2},
-	        q_span=qsids, d_span=ksids
+	        loss=loss, 
+	        acc=accuracy,
+	        losses=losses,
+	        q_span=qsids, 
+	        d_span=ksids,
 	)
