@@ -1,12 +1,5 @@
-import os
-import torch
-import transformers
-from transformers import BertModel
-
-
-
-class Contriever(BertModel):
-    def __init__(self, config, pooling="mean", **kwargs):
+class XLMRetriever(XLMRobertaModel):
+    def __init__(self, config, pooling="average", **kwargs):
         super().__init__(config, add_pooling_layer=False)
         if not hasattr(config, "pooling"):
             self.config.pooling = pooling
@@ -41,12 +34,10 @@ class Contriever(BertModel):
 
         last_hidden = model_output["last_hidden_state"]
         last_hidden = last_hidden.masked_fill(~attention_mask[..., None].bool(), 0.0)
-
-        if self.config.pooling == "mean":
+        if self.config.pooling == "average":
             emb = last_hidden.sum(dim=1) / attention_mask.sum(dim=1)[..., None]
         elif self.config.pooling == "cls":
             emb = last_hidden[:, 0]
-
         if normalize:
             emb = torch.nn.functional.normalize(emb, dim=-1)
         return emb

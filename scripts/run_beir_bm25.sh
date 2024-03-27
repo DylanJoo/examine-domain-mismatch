@@ -1,5 +1,4 @@
 # for dataset in scifact trec-covid scidocs;do
-#
 #     # Indexing
 #     index=/home/dju/indexes/beir/${dataset}-multifield.lucene
 #     python -m pyserini.index.lucene \
@@ -16,7 +15,7 @@
 #         --topic /home/dju/datasets/beir/${dataset}/queries.jsonl \
 #         --batch_size 8 \
 #         --fields contents=1.0 title=1.0 \
-#         --output runs/run.beir.${dataset}.bm25-multifield.txt
+#         --output runs/bm25/run.beir.${dataset}.bm25-multifield.txt
 # done
 
 # Evaluation
@@ -26,6 +25,6 @@ for dataset in scifact trec-covid scidocs;do
     ~/trec_eval-9.0.7/trec_eval \
         -c -m ndcg_cut.10 -m recall.100 \
         /home/dju/datasets/beir/${dataset}/qrels.beir-v1.0.0-${dataset}.test.txt \
-        runs/baseline_bm25/run.beir.${dataset}.bm25-multifield.txt \
+        runs/bm25/run.beir.${dataset}.bm25-multifield.txt \
         | cut -f3 | sed ':a; N; $!ba; s/\n/ | /g'
 done

@@ -1,15 +1,23 @@
 import os
 import torch
-import transformers
-from transformers import BertModel
+from transformers import BertForMaskedLM
+import torch.nn as nn
 
+def splade_max(tensor, additional_mask=None):
+    values, indices = torch.max(
+        torch.log(1 + torch.relu(tensor)) * additional_mask.unsqueeze(-1), 
+        dim=1
+    )
+    return values
 
-
-class Contriever(BertModel):
-    def __init__(self, config, pooling="mean", **kwargs):
-        super().__init__(config, add_pooling_layer=False)
-        if not hasattr(config, "pooling"):
-            self.config.pooling = pooling
+class SpladeRep(BertForMaskedLM):
+    def __init__(self, config, pooling="max", **kwargs):
+        super().__init__(config)
+        self.config.pooling = pooling
+        if pooling == 'max':
+            self.pooler = splade_max
+        else:
+            self.pooler = nn.Identity
 
     def forward(
         self,
@@ -39,15 +47,10 @@ class Contriever(BertModel):
             output_hidden_states=output_hidden_states,
         )
 
-        last_hidden = model_output["last_hidden_state"]
-        last_hidden = last_hidden.masked_fill(~attention_mask[..., None].bool(), 0.0)
-
-        if self.config.pooling == "mean":
-            emb = last_hidden.sum(dim=1) / attention_mask.sum(dim=1)[..., None]
-        elif self.config.pooling == "cls":
-            emb = last_hidden[:, 0]
+        logits = model_output["logits"] # bsz seq_len V
+        vector = logits.masked_fill(~attention_mask[..., None].bool(), 0.0)
+        vector = self.pooler(vector)
 
         if normalize:
-            emb = torch.nn.functional.normalize(emb, dim=-1)
-        return emb
-
+            vector = torch.nn.functional.normalize(vector, p=2, dim=-1)
+        return vector

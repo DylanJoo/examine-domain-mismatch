@@ -1,19 +1,20 @@
 import os
+import sys
 import json
 import argparse
 from tqdm import tqdm 
-from pyserini.search import FaissSearcher
-from utils import load_topic, batch_iterator
 
-import sys
-sys.path.insert(0, "/home/dju/examine-domain-mismatch")
-from models import ContrieverQueryEncoder
+from pyserini.search import FaissSearcher
+
+from encoders import ContrieverQueryEncoder
+from utils import load_topic, batch_iterator
 
 def search(args):
 
     if 'contriever' in args.encoder_path:
         query_encoder = ContrieverQueryEncoder(
             args.encoder_path, 
+            tokenizer_name='facebook/contriever',
             device=args.device,
             pooling='mean', 
             l2_norm=False
@@ -56,6 +57,9 @@ if __name__ == '__main__':
     parser.add_argument("--batch_size", default=1, type=int)
     parser.add_argument("--output", default=None, type=str)
     parser.add_argument("--device", default='cpu', type=str)
+    # additiona model setup
+    parser.add_argument("--pooling", default='cls', type=None)
     args = parser.parse_args()
 
+    os.makedirs(args.output.rsplit('/', 1)[0], exist_ok=True)
     search(args)
