@@ -1,7 +1,9 @@
 index_dir=/home/dju/indexes/beir
 data_dir=/home/dju/datasets/beir
 
-for exp in ind-cropping- ict-;do
+for exp in ind-cropping-mean-span_select_average-;do
+# for exp in ind-cropping- ind-cropping-cls-;do 
+# for exp in ind-cropping-cls-;do 
 
     encoder=/home/dju/examine-domain-mismatch/models/ckpt/contriever-${exp}trec-covid
     pooling=mean
@@ -24,7 +26,7 @@ for exp in ind-cropping- ict-;do
             --max-length 256 \
             --device cuda
 
-        echo searching...${dataset}
+        echo searching...${dataset}...${exp}
         python retrieval/dense_search.py \
             --k 1000  \
             --index ${index_dir}/${dataset}-${exp}contriever.faiss \

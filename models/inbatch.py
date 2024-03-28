@@ -86,6 +86,7 @@ class InBatchWithSpan(InBatch):
         # [objectives] 
         CELoss = nn.CrossEntropyLoss(label_smoothing=self.label_smoothing)
         KLLoss = nn.KLDivLoss(reduction='batchmean')
+        MSELoss = nn.MSELoss()
 
         qemb, qsemb, qsids = self.encoder(input_ids=q_tokens, attention_mask=q_mask, normalize=self.norm_query)
         kemb, ksemb, ksids = self.encoder(input_ids=k_tokens, attention_mask=k_mask, normalize=self.norm_doc)
@@ -99,12 +100,19 @@ class InBatchWithSpan(InBatch):
 
         # [span]
         if self.opt.distil_from_sentence:
-            probs_sents = F.softmax(scores, dim=1)
-            scores_spans = torch.einsum("id, jd->ij", qsemb / temperature, ksemb)
-            logits_spans = F.log_softmax(scores_spans, dim=1)
-            loss_span = KLLoss(logits_spans, probs_sents)
+            if self.opt.distil_from_sentence.lower() == 'kl':
+                probs_sents = F.softmax(scores, dim=1)
+                scores_spans = torch.einsum("id, jd->ij", qsemb / temperature, ksemb)
+                logits_spans = F.log_softmax(scores_spans, dim=1)
+                loss_span = KLLoss(logits_spans, probs_sents)
+                losses = {'loss_sent': loss_0, 'loss_span': loss_span}
 
-            losses = {'loss_sent': loss_0, 'loss_span(kl)': loss_span}
+            elif self.opt.distil_from_sentence.lower() == 'mse':
+                scores_spans = torch.einsum("id, jd->ij", qsemb / temperature, ksemb)
+                # loss_span = MSELoss(scores_spans.view(-1), scores.view(-1)) # distil from scores
+                loss_span = ( MSELoss(qsemb, qemb) + MSELoss(ksemb, kemb) ) / 2
+                losses = {'loss_sent': loss_0, 'loss_span': loss_span}
+
         else:
             ## add loss of (q-span, doc) ## add loss of (query, d-span)
             sscores_1 = torch.einsum("id, jd->ij", qsemb / temperature, kemb)
@@ -112,8 +120,7 @@ class InBatchWithSpan(InBatch):
             sscores_2 = torch.einsum("id, jd->ij", qemb / temperature, ksemb)
             loss_2 = CELoss(sscores_2, labels)
             loss_span = (loss_1 + loss_2) / 2
-
-            losses = {'loss_sent': loss_0, 'loss_spans(ctra)': loss_span}
+            losses = {'loss_sent': loss_0, 'loss_spans(cont)': loss_span}
 
         loss = loss_0 + loss_span
 

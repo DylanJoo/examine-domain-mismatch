@@ -28,7 +28,10 @@ def main():
         from models._dev import Contriever 
         from models.inbatch import InBatchWithSpan as InBatch
 
-    encoder = Contriever.from_pretrained(model_opt.model_name, pooling=model_opt.pooling)
+    encoder = Contriever.from_pretrained(model_opt.model_name, 
+            pooling=model_opt.pooling,
+            span_pooling=model_opt.span_pooling
+    )
     model = InBatch(model_opt, retriever=encoder, tokenizer=tokenizer)
     
     # [Data] train/eval datasets, collator, preprocessor
