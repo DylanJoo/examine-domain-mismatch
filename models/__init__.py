@@ -5,3 +5,4 @@ from .inbatch import InBatchForSplade # [todo] try to merge this into the first 
 # the encoder models
 from ._contriever import Contriever
 from ._splade import SpladeRep
+from ._monobert import MonoBERT

@@ -1,16 +1,17 @@
 index_dir=/home/dju/indexes/beir
 data_dir=/home/dju/datasets/beir
 
-for exp in ind-cropping-mean-span_select_average-;do
-# for exp in ind-cropping- ind-cropping-cls-;do 
-# for exp in ind-cropping-cls-;do 
+# for exp in ind-cropping-mean-span_select_average-mse- ind-cropping-mean-span_select_average-kl-;do
+# for exp in ind-cropping-cls-span_select_average-;do
+for ckpt in 2000 4000 6000 8000 10000;do
 
-    encoder=/home/dju/examine-domain-mismatch/models/ckpt/contriever-${exp}trec-covid
+    exp=ind-cropping-mean-span_select_average-
+    encoder=/home/dju/examine-domain-mismatch/models/ckpt/contriever-${exp}trec-covid/checkpoint-${ckpt}
     pooling=mean
 
     for dataset in trec-covid;do
 
-        echo indexing...${dataset}...${exp}
+        # echo indexing...${dataset}...${exp}
         python3 retrieval/dense_index.py input \
             --corpus ${data_dir}/${dataset}/collection \
             --fields text title \
@@ -39,7 +40,7 @@ for exp in ind-cropping-mean-span_select_average-;do
     done
 
     for dataset in trec-covid;do
-        echo -ne "beir-${dataset}  | " 
+        echo -ne "beir-${dataset}.${ckpt}  | " 
         ~/trec_eval-9.0.7/trec_eval \
             -c -m ndcg_cut.10 -m recall.100 \
             ${data_dir}/${dataset}/qrels.beir-v1.0.0-${dataset}.test.txt \

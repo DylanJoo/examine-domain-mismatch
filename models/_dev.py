@@ -13,7 +13,7 @@ Version 1
         - (a2) `boundary_project`: select a start and an end token, concatenate them and project to a new embeddings (DensePhrase)
         - (b) `span_extract_average`: extract a span from a start and end token. And take the average (DPR)
         - (c) `span_select_average`: select tokens embeddings from a learned layer. (UniCoil)
-        - (c2) `span_select_average_v2`: select tokens embeddings from a learned layer, use softmax (UniCoil)
+        - (c2) `span_select_average`: select tokens embeddings from a learned layer, use softmax (UniCoil)
         - We will possibly need regularization to make this span as short as possible
  - Document: segment representation (from CLS)
 
@@ -24,18 +24,16 @@ Version 2
 class Contriever(BertModel):
     def __init__(self, config, pooling="mean", span_pooling='span_select_average', **kwargs):
         super().__init__(config, add_pooling_layer=False)
-        if not hasattr(config, "pooling"):
-            self.config.pooling = pooling
-
+        self.config.pooling = pooling
         self.config.span_pooling = span_pooling
+
         if 'boundary_average' in self.config.span_pooling:
             self.outputs = nn.Linear(self.config.hidden_size, 2)
         elif 'span_extract_average' in self.config.span_pooling:
             self.outputs = nn.Linear(self.config.hidden_size, 2)
-        elif "span_select_average" in self.config.span_pooling: # may need to add constraints
-            self.outputs = nn.Sequential(
-                    nn.Linear(self.config.hidden_size, 1), nn.Softmax(dim=1)
-            )
+        elif "span_select" in self.config.span_pooling: # may need to add constraints
+            # (a) span_select_average, (b) span_select_sum
+            self.outputs = nn.Sequential(nn.Linear(self.config.hidden_size, 1), nn.Softmax(dim=1))
         else:
             self.outputs = None
 
@@ -89,6 +87,8 @@ class Contriever(BertModel):
             span_emb, span_ids = self._span_extract_average(**kwargs)
         elif "span_select_average" in self.config.span_pooling: # may need to add constraints
             span_emb, span_ids = self._span_select_average(**kwargs)
+        elif "span_select_sum" in self.config.span_pooling: 
+            span_emb, span_ids = self._span_select_sum(**kwargs)
 
         return emb, span_emb, span_ids
 
@@ -127,5 +127,12 @@ class Contriever(BertModel):
     def _span_select_average(self, hidden, **kwargs):
         select_prob = self.outputs(hidden[:, 1:, :]) # exclude CLS
         span_emb = torch.mean(hidden[:, 1:, :] * select_prob, dim=1) 
+        top_k_ids = 1 + select_prob.squeeze(-1).topk(10).indices 
+        return span_emb, top_k_ids
+
+    def _span_select_sum(self, hidden, **kwargs):
+        # [todo] consider put this func into the previous one.
+        select_prob = self.outputs(hidden[:, 1:, :]) # exclude CLS
+        span_emb = torch.sum(hidden[:, 1:, :] * select_prob, dim=1) 
         top_k_ids = 1 + select_prob.squeeze(-1).topk(10).indices 
         return span_emb, top_k_ids

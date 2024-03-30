@@ -36,7 +36,7 @@ class TrainOptions(TrainingArguments):
     do_train: bool = field(default=False)
     do_eval: bool = field(default=False)
     max_steps: int = field(default=-1)
-    save_steps: int = field(default=1000)
+    save_steps: int = field(default=2000)
     eval_steps: int = field(default=1000)
     evaluation_strategy: Optional[str] = field(default='no')
     per_device_train_batch_size: int = field(default=2)
