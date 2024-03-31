@@ -6,8 +6,6 @@ from transformers import HfArgumentParser
 from transformers import AutoTokenizer
 from dataclasses import asdict
 
-from models import Contriever
-from models import InBatch
 from trainers import TrainerBase
 
 from ind_cropping.options import ModelOptions, DataOptions, TrainOptions
@@ -21,18 +19,27 @@ def main():
     parser = HfArgumentParser((ModelOptions, DataOptions, TrainOptions))
     model_opt, data_opt, train_opt = parser.parse_args_into_dataclasses()
 
+    # change project if needed
+    if train_opt.wandb_project:
+        os.environ["WANDB_PROJECT"] = train_opt.wandb_project
+
     # [Model] tokenizer, model architecture (with bi-encoders)
     tokenizer = AutoTokenizer.from_pretrained(model_opt.model_path or model_opt.model_name)
     # [Model-Dev]
     if 'span' in train_opt.output_dir or 'boundary' in train_opt.output_dir:
         from models._dev import Contriever 
         from models.inbatch import InBatchWithSpan as InBatch
+    else:
+        from models import Contriever
+        from models import InBatch
 
     encoder = Contriever.from_pretrained(model_opt.model_name, 
             pooling=model_opt.pooling,
             span_pooling=model_opt.span_pooling
     )
     model = InBatch(model_opt, retriever=encoder, tokenizer=tokenizer)
+
+    ## [todo] include the distillation if needed
     
     # [Data] train/eval datasets, collator, preprocessor
     train_dataset = load_dataset(data_opt, tokenizer)

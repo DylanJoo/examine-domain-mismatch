@@ -15,6 +15,8 @@ class ModelOptions:
     norm_query: Optional[bool] = field(default=False)
     output_span: Optional[bool] = field(default=False)
     distil_from_sentence: Optional[str] = field(default=None)
+    temperature: Optional[float] = field(default=1.0)
+    temperature_span: Optional[float] = field(default=1.0)
 
 @dataclass
 class DataOptions:
@@ -38,6 +40,7 @@ class TrainOptions(TrainingArguments):
     max_steps: int = field(default=-1)
     save_steps: int = field(default=2000)
     eval_steps: int = field(default=1000)
+    warm_steps: int = field(default=1000)
     evaluation_strategy: Optional[str] = field(default='no')
     per_device_train_batch_size: int = field(default=2)
     per_device_eval_batch_size: int = field(default=2)
@@ -49,3 +52,4 @@ class TrainOptions(TrainingArguments):
     dataloader_num_workers: int = field(default=1)
     dataloader_prefetch_factor: int = field(default=2)
     fp16: bool = field(default=True)
+    wandb_project: Optional[str] = field(default=None)

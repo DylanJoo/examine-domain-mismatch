@@ -42,12 +42,12 @@ class Contriever(BertModel):
         last_hidden = model_output["last_hidden_state"]
         last_hidden = last_hidden.masked_fill(~attention_mask[..., None].bool(), 0.0)
 
-        if self.config.pooling == "mean":
-            emb = last_hidden.sum(dim=1) / attention_mask.sum(dim=1)[..., None]
-        elif self.config.pooling == "cls":
+        if self.config.pooling == "cls":
             emb = last_hidden[:, 0]
-
+        else:
+            emb = last_hidden.sum(dim=1) / attention_mask.sum(dim=1)[..., None]
         if normalize:
             emb = torch.nn.functional.normalize(emb, dim=-1)
+
         return emb
 

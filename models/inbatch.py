@@ -25,6 +25,9 @@ class InBatch(nn.Module):
         self.tokenizer = tokenizer
         self.encoder = retriever
 
+        self.tau = opt.temperature
+        self.tau_span = opt.temperature_span
+
     def forward(self, q_tokens, q_mask, k_tokens, k_mask, stats_prefix="", **kwargs):
 
         # this is for random cropping
@@ -37,8 +40,7 @@ class InBatch(nn.Module):
         qemb = self.encoder(input_ids=q_tokens, attention_mask=q_mask, normalize=self.norm_query)
         kemb = self.encoder(input_ids=k_tokens, attention_mask=k_mask, normalize=self.norm_doc)
 
-        temperature = 1.0
-        scores = torch.einsum("id, jd->ij", qemb / temperature, kemb)
+        scores = torch.einsum("id, jd->ij", qemb / self.tau, kemb)
 
         loss = torch.nn.functional.cross_entropy(scores, labels, label_smoothing=self.label_smoothing)
 
@@ -56,8 +58,7 @@ class InBatch(nn.Module):
 
         emb = self.encoder(input_ids=tokens, attention_mask=mask, normalize=self.norm_query)
 
-        temperature = 1.0
-        scores = torch.matmul(emb/temperature, emb.transpose(0, 1))
+        scores = torch.matmul(emb/self.tau, emb.transpose(0, 1))
         scores.fill_diagonal_(float('-inf'))
 
         loss = torch.nn.functional.cross_entropy(scores, labels, label_smoothing=self.label_smoothing) 
@@ -92,8 +93,7 @@ class InBatchWithSpan(InBatch):
         kemb, ksemb, ksids = self.encoder(input_ids=k_tokens, attention_mask=k_mask, normalize=self.norm_doc)
 
         # [sentence]
-        temperature = 1.0
-        scores = torch.einsum("id, jd->ij", qemb / temperature, kemb)
+        scores = torch.einsum("id, jd->ij", qemb / self.tau, kemb)
         loss_0 = CELoss(scores, labels)
         predicted_idx = torch.argmax(scores, dim=-1)
         accuracy = 100 * (predicted_idx == labels).float().mean()
@@ -103,7 +103,7 @@ class InBatchWithSpan(InBatch):
             if self.opt.distil_from_sentence.lower() == 'kl':
                 # distill from scores
                 probs_sents = F.softmax(scores, dim=1)
-                scores_spans = torch.einsum("id, jd->ij", qsemb / temperature, ksemb)
+                scores_spans = torch.einsum("id, jd->ij", qsemb / self.tau_span, ksemb)
                 logits_spans = F.log_softmax(scores_spans, dim=1)
                 loss_span = KLLoss(logits_spans, probs_sents)
                 losses = {'loss_sent': loss_0, 'loss_span': loss_span}
@@ -119,9 +119,9 @@ class InBatchWithSpan(InBatch):
 
         else:
             ## add loss of (q-span, doc) ## add loss of (query, d-span)
-            sscores_1 = torch.einsum("id, jd->ij", qsemb / temperature, kemb)
+            sscores_1 = torch.einsum("id, jd->ij", qsemb / self.tau_span, kemb)
             loss_1 = CELoss(sscores_1, labels)
-            sscores_2 = torch.einsum("id, jd->ij", qemb / temperature, ksemb)
+            sscores_2 = torch.einsum("id, jd->ij", qemb / self.tau_span, ksemb)
             loss_2 = CELoss(sscores_2, labels)
             loss_span = (loss_1 + loss_2) / 2
             losses = {'loss_sent': loss_0, 'loss_span': loss_span}

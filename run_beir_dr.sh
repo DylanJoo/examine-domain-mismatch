@@ -2,12 +2,12 @@ index_dir=/home/dju/indexes/beir
 data_dir=/home/dju/datasets/beir
 
 # for exp in ind-cropping-mean-span_select_average-mse- ind-cropping-mean-span_select_average-kl-;do
-# for exp in ind-cropping-cls-span_select_average-;do
-for ckpt in 2000 4000 6000 8000 10000;do
+# for exp in ind-cropping-cls-span_select_average-;d2000
+for tau in 2.0 4.0;do
 
-    exp=ind-cropping-mean-span_select_average-
-    encoder=/home/dju/examine-domain-mismatch/models/ckpt/contriever-${exp}trec-covid/checkpoint-${ckpt}
-    pooling=mean
+    exp=ind-cropping-cls-
+    encoder=/home/dju/examine-domain-mismatch/models/ckpt/contriever-${exp}trec-covid/${tau}/checkpoint-2000
+    pooling=cls
 
     for dataset in trec-covid;do
 

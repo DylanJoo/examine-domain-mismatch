@@ -12,8 +12,7 @@ Version 1
         - (a) `boundary_average`: select a start and an end token. And take the average (SBO)
         - (a2) `boundary_project`: select a start and an end token, concatenate them and project to a new embeddings (DensePhrase)
         - (b) `span_extract_average`: extract a span from a start and end token. And take the average (DPR)
-        - (c) `span_select_average`: select tokens embeddings from a learned layer. (UniCoil)
-        - (c2) `span_select_average`: select tokens embeddings from a learned layer, use softmax (UniCoil)
+        - (c) `span_select_average`: select tokens embeddings from a learned layer, use softmax (UniCoil) [sigmoid is not good]
         - We will possibly need regularization to make this span as short as possible
  - Document: segment representation (from CLS)
 
@@ -31,9 +30,17 @@ class Contriever(BertModel):
             self.outputs = nn.Linear(self.config.hidden_size, 2)
         elif 'span_extract_average' in self.config.span_pooling:
             self.outputs = nn.Linear(self.config.hidden_size, 2)
-        elif "span_select" in self.config.span_pooling: # may need to add constraints
-            # (a) span_select_average, (b) span_select_sum
-            self.outputs = nn.Sequential(nn.Linear(self.config.hidden_size, 1), nn.Softmax(dim=1))
+        elif "span_select_average" in self.config.span_pooling: # may need to add constraints
+            # (a) softmax + average (b) softmax + sum (c) sigmoid + average
+            self.outputs = nn.Sequential(
+                    nn.Linear(self.config.hidden_size, 1), 
+                    nn.Sigmoid()
+            )
+        elif "span_select_sum" in self.config.span_pooling: # may need to add constraints
+            self.outputs = nn.Sequential(
+                    nn.Linear(self.config.hidden_size, 1), 
+                    nn.Softmax(1)
+            )
         else:
             self.outputs = None
 
@@ -70,7 +77,10 @@ class Contriever(BertModel):
 
         bsz, seq_len = input_ids.size() if input_ids is not None else inputs_embeds.size()[:2]
         emb_size = last_hidden.size(-1)
-        kwargs = {'hidden': last_hidden, 'bsz': bsz, 'seq_len': seq_len, 'emb_size': emb_size}
+        kwargs = {
+                'hidden': last_hidden, 'mask': attention_mask, 
+                'bsz': bsz, 'seq_len': seq_len, 'emb_size': emb_size
+        }
 
         # sentence representation
         if 'cls' in self.config.pooling:
@@ -92,7 +102,7 @@ class Contriever(BertModel):
 
         return emb, span_emb, span_ids
 
-    def _boundary_average(self, hidden, bsz, emb_size, **kwargs): 
+    def _boundary_average(self, hidden, mask, bsz, emb_size, **kwargs): 
         logits = self.outputs(hidden[:, 1:, :]) # exclude CLS 
         start_logits, end_logits = logits.split(1, dim=-1)
         start_logits = start_logits.softmax(1).contiguous()
@@ -109,7 +119,7 @@ class Contriever(BertModel):
         span_emb = span_emb * failed_span_mask.view(-1, 1) 
         return span_emb, span_ids
 
-    def _span_extract_average(self, hidden, bsz, seq_len, **kwargs):
+    def _span_extract_average(self, hidden, mask, bsz, seq_len, **kwargs):
         logits = self.outputs(hidden[:, 1:, :]) 
         start_logits, end_logits = logits.split(1, dim=-1)
         start_logits = start_logits.squeeze(-1).contiguous()
@@ -124,9 +134,10 @@ class Contriever(BertModel):
         span_emb = torch.mean(hidden * extract_span_mask.unsqueeze(-1), dim=1)
         return span_emb, span_ids
 
-    def _span_select_average(self, hidden, **kwargs):
+    def _span_select_average(self, hidden, mask, **kwargs):
         select_prob = self.outputs(hidden[:, 1:, :]) # exclude CLS
-        span_emb = torch.mean(hidden[:, 1:, :] * select_prob, dim=1) 
+        # exclude the cls tokenm so length - 1
+        span_emb = (hidden[:, 1:, :] * select_prob).sum(dim=1) / (mask.sum(dim=1) - 1)[..., None]
         top_k_ids = 1 + select_prob.squeeze(-1).topk(10).indices 
         return span_emb, top_k_ids
 
