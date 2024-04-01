@@ -1,12 +1,10 @@
 index_dir=/home/dju/indexes/beir
 data_dir=/home/dju/datasets/beir
 
-# for exp in ind-cropping-mean-span_select_average-mse- ind-cropping-mean-span_select_average-kl-;do
-# for exp in ind-cropping-cls-span_select_average-;d2000
-for tau in 2.0 4.0;do
+for tau in 0.5;do
 
-    exp=ind-cropping-cls-
-    encoder=/home/dju/examine-domain-mismatch/models/ckpt/contriever-${exp}trec-covid/${tau}/checkpoint-2000
+    exp=ind-cropping-cls-span_select_sum-
+    encoder=/home/dju/examine-domain-mismatch/models/ckpt/contriever-${exp}trec-covid/${tau}
     pooling=cls
 
     for dataset in trec-covid;do
@@ -40,7 +38,7 @@ for tau in 2.0 4.0;do
     done
 
     for dataset in trec-covid;do
-        echo -ne "beir-${dataset}.${ckpt}  | " 
+        echo -ne "beir-${dataset}.${tau}.${ckpt}  | " 
         ~/trec_eval-9.0.7/trec_eval \
             -c -m ndcg_cut.10 -m recall.100 \
             ${data_dir}/${dataset}/qrels.beir-v1.0.0-${dataset}.test.txt \

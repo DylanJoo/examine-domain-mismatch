@@ -26,21 +26,14 @@ class Contriever(BertModel):
         self.config.pooling = pooling
         self.config.span_pooling = span_pooling
 
-        if 'boundary_average' in self.config.span_pooling:
+        if 'boundary' in self.config.span_pooling:
             self.outputs = nn.Linear(self.config.hidden_size, 2)
         elif 'span_extract_average' in self.config.span_pooling:
             self.outputs = nn.Linear(self.config.hidden_size, 2)
         elif "span_select_average" in self.config.span_pooling: # may need to add constraints
-            # (a) softmax + average (b) softmax + sum (c) sigmoid + average
-            self.outputs = nn.Sequential(
-                    nn.Linear(self.config.hidden_size, 1), 
-                    nn.Sigmoid()
-            )
+            self.outputs = nn.Sequential(nn.Linear(self.config.hidden_size, 1), nn.Sigmoid())
         elif "span_select_sum" in self.config.span_pooling: # may need to add constraints
-            self.outputs = nn.Sequential(
-                    nn.Linear(self.config.hidden_size, 1), 
-                    nn.Softmax(1)
-            )
+            self.outputs = nn.Sequential(nn.Linear(self.config.hidden_size, 1), nn.Softmax(1))
         else:
             self.outputs = None
 
@@ -93,6 +86,8 @@ class Contriever(BertModel):
         # span representation
         if 'boundary_average' in self.config.span_pooling:
             span_emb, span_ids = self._boundary_average(**kwargs)
+        elif 'boundary_embedding' in self.config.span_pooling:
+            span_emb, span_ids = self._boundary_embedding(**kwargs)
         elif 'span_extract_average' in self.config.span_pooling:
             span_emb, span_ids = self._span_extract_average(**kwargs)
         elif "span_select_average" in self.config.span_pooling: # may need to add constraints
@@ -101,6 +96,37 @@ class Contriever(BertModel):
             span_emb, span_ids = self._span_select_sum(**kwargs)
 
         return emb, span_emb, span_ids
+
+    def _boundary_embedding(self, hidden, mask, bsz, seq_len, emb_size, **kwargs): 
+        logits = self.outputs(hidden[:, 1:, :]) # exclude CLS 
+        start_logits, end_logits = logits.split(1, dim=-1)
+        start_logits = start_logits.softmax(1).contiguous()
+        end_logits = end_logits.softmax(1).contiguous()
+
+        start_id = start_logits.view(bsz, -1).argmax(-1) 
+        end_id = end_logits.view(bsz, -1).argmax(-1)
+        span_ids = torch.cat([start_id, end_id], dim=-1).view(2, -1)
+
+        # boundary logit: p_i x p_j, shape: bsz seq_len seq_len
+        # row-i means the end token, which is at the i-th of seq
+        # col-j means the start token, which is at the j-th of seq
+        # the trigular matrix has [:, 0] = 1, which mean j=0, i can be [0...N-1]
+
+        # boundary logit: p_i x p_j, shape: bsz seq_len seq_len
+        valid_mask = torch.ones(seq_len-1, seq_len-1).triu().T.repeat(bsz,1,1).to(hidden.device)
+        boundary_logits = torch.mul(end_logits, start_logits.permute(0, 2, 1))
+        boundary_logits = boundary_logits * valid_mask
+
+        # boundary candidates: h'_ij = h_i + h_j, shape: bsz seq_len seq_len embsize
+        boundary_embeddings = torch.add( 
+                hidden[:, 1:, :].permute(0,2,1)[..., None],    # bsz embsize seqlen 1
+                hidden[:, 1:, :].permute(0,2,1)[:, :, None, :] # bsz embsize 1 seqlen
+        ).permute(0,2,3,1)  
+
+        span_emb = (boundary_embeddings * boundary_logits[..., None]).view(
+                bsz, -1, emb_size
+        ).sum(1)
+        return span_emb, span_ids
 
     def _boundary_average(self, hidden, mask, bsz, emb_size, **kwargs): 
         logits = self.outputs(hidden[:, 1:, :]) # exclude CLS 
@@ -141,9 +167,10 @@ class Contriever(BertModel):
         top_k_ids = 1 + select_prob.squeeze(-1).topk(10).indices 
         return span_emb, top_k_ids
 
-    def _span_select_sum(self, hidden, **kwargs):
+    def _span_select_sum(self, hidden, mask, **kwargs):
         # [todo] consider put this func into the previous one.
         select_prob = self.outputs(hidden[:, 1:, :]) # exclude CLS
-        span_emb = torch.sum(hidden[:, 1:, :] * select_prob, dim=1) 
+        span_emb = torch.sum(hidden[:, 1:, :] * select_prob, dim=1) # sum
+        # span_emb = (hidden[:, 1:, :] * select_prob).sum(dim=1) / (mask.sum(dim=1) - 1)[..., None]
         top_k_ids = 1 + select_prob.squeeze(-1).topk(10).indices 
         return span_emb, top_k_ids
