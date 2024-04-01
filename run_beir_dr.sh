@@ -1,10 +1,10 @@
 index_dir=/home/dju/indexes/beir
 data_dir=/home/dju/datasets/beir
 
-for tau in 0.5;do
+for ckpt in 2000 4000 6000 8000 10000;do
 
     exp=ind-cropping-cls-span_select_sum-
-    encoder=/home/dju/examine-domain-mismatch/models/ckpt/contriever-${exp}trec-covid/${tau}
+    encoder=/home/dju/examine-domain-mismatch/models/ckpt/contriever-ind-cropping-cls-boundary_embedding-trec-covid/checkpoint-$ckpt
     pooling=cls
 
     for dataset in trec-covid;do
