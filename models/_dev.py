@@ -28,11 +28,13 @@ class Contriever(BertModel):
 
         if 'boundary' in self.config.span_pooling:
             self.outputs = nn.Linear(self.config.hidden_size, 2)
-        elif 'span_extract_average' in self.config.span_pooling:
-            self.outputs = nn.Linear(self.config.hidden_size, 2)
+        # elif 'span_extract_average' in self.config.span_pooling:
+        #     self.outputs = nn.Linear(self.config.hidden_size, 2)
         elif "span_select_average" in self.config.span_pooling: # may need to add constraints
-            self.outputs = nn.Sequential(nn.Linear(self.config.hidden_size, 1), nn.Sigmoid())
+            self.outputs = nn.Sequential(nn.Linear(self.config.hidden_size, 1), nn.ReLU())
         elif "span_select_sum" in self.config.span_pooling: # may need to add constraints
+            self.outputs = nn.Sequential(nn.Linear(self.config.hidden_size, 1), nn.Softmax(1))
+        elif "span_select_weird" in self.config.span_pooling: # may need to add constraints
             self.outputs = nn.Sequential(nn.Linear(self.config.hidden_size, 1), nn.Softmax(1))
         else:
             self.outputs = None
@@ -50,6 +52,7 @@ class Contriever(BertModel):
         output_attentions=None,
         output_hidden_states=None,
         normalize=False,
+        normalize_spans=False,
     ):
 
         model_output = super().forward(
@@ -72,7 +75,8 @@ class Contriever(BertModel):
         emb_size = last_hidden.size(-1)
         kwargs = {
                 'hidden': last_hidden, 'mask': attention_mask, 
-                'bsz': bsz, 'seq_len': seq_len, 'emb_size': emb_size
+                'bsz': bsz, 'seq_len': seq_len, 'emb_size': emb_size,
+                'normalize': normalize_spans
         }
 
         # sentence representation
@@ -88,12 +92,14 @@ class Contriever(BertModel):
             span_emb, span_ids = self._boundary_average(**kwargs)
         elif 'boundary_embedding' in self.config.span_pooling:
             span_emb, span_ids = self._boundary_embedding(**kwargs)
-        elif 'span_extract_average' in self.config.span_pooling:
-            span_emb, span_ids = self._span_extract_average(**kwargs)
+        # elif 'span_extract_average' in self.config.span_pooling:
+        #     span_emb, span_ids = self._span_extract_average(**kwargs)
         elif "span_select_average" in self.config.span_pooling: # may need to add constraints
             span_emb, span_ids = self._span_select_average(**kwargs)
         elif "span_select_sum" in self.config.span_pooling: 
             span_emb, span_ids = self._span_select_sum(**kwargs)
+        elif "span_select_weird" in self.config.span_pooling: 
+            span_emb, span_ids = self._span_select_weird(**kwargs)
 
         return emb, span_emb, span_ids
 
@@ -162,15 +168,19 @@ class Contriever(BertModel):
 
     def _span_select_average(self, hidden, mask, **kwargs):
         select_prob = self.outputs(hidden[:, 1:, :]) # exclude CLS
-        # exclude the cls tokenm so length - 1
+        span_emb = torch.mean(hidden[:, 1:, :] * select_prob, dim=1) / 256
+        top_k_ids = 1 + select_prob.squeeze(-1).topk(10).indices 
+        return span_emb, top_k_ids
+
+    def _span_select_sum(self, hidden, mask, normalize, **kwargs):
+        select_prob = self.outputs(hidden[:, 1:, :]) # exclude CLS
+        # span_emb = torch.sum(hidden[:, 1:, :] * select_prob, dim=1) # sum
         span_emb = (hidden[:, 1:, :] * select_prob).sum(dim=1) / (mask.sum(dim=1) - 1)[..., None]
         top_k_ids = 1 + select_prob.squeeze(-1).topk(10).indices 
         return span_emb, top_k_ids
 
-    def _span_select_sum(self, hidden, mask, **kwargs):
-        # [todo] consider put this func into the previous one.
+    def _span_select_weird(self, hidden, mask, **kwargs):
         select_prob = self.outputs(hidden[:, 1:, :]) # exclude CLS
-        span_emb = torch.sum(hidden[:, 1:, :] * select_prob, dim=1) # sum
-        # span_emb = (hidden[:, 1:, :] * select_prob).sum(dim=1) / (mask.sum(dim=1) - 1)[..., None]
+        span_emb = (hidden[:, 1:, :] * select_prob).sum(dim=1) / 256
         top_k_ids = 1 + select_prob.squeeze(-1).topk(10).indices 
         return span_emb, top_k_ids

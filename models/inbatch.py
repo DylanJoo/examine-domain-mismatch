@@ -21,6 +21,7 @@ class InBatch(nn.Module):
         self.opt = opt
         self.norm_doc = opt.norm_doc
         self.norm_query = opt.norm_query
+        self.norm_spans = opt.norm_spans
         self.label_smoothing = label_smoothing
         self.tokenizer = tokenizer
         self.encoder = retriever
@@ -89,8 +90,8 @@ class InBatchWithSpan(InBatch):
         KLLoss = nn.KLDivLoss(reduction='batchmean')
         MSELoss = nn.MSELoss()
 
-        qemb, qsemb, qsids = self.encoder(input_ids=q_tokens, attention_mask=q_mask, normalize=self.norm_query)
-        kemb, ksemb, ksids = self.encoder(input_ids=k_tokens, attention_mask=k_mask, normalize=self.norm_doc)
+        qemb, qsemb, qsids = self.encoder(input_ids=q_tokens, attention_mask=q_mask, normalize=self.norm_query, normalize_spans=self.norm_spans)
+        kemb, ksemb, ksids = self.encoder(input_ids=k_tokens, attention_mask=k_mask, normalize=self.norm_doc, normalize_spans=self.norm_spans)
 
         # [sentence]
         scores = torch.einsum("id, jd->ij", qemb / self.tau, kemb)
@@ -100,7 +101,7 @@ class InBatchWithSpan(InBatch):
 
         # [span]
         if self.opt.distil_from_sentence:
-            if self.opt.distil_from_sentence.lower() == 'kl':
+            if 'kl' in self.opt.distil_from_sentence.lower():
                 # distill from scores
                 probs_sents = F.softmax(scores, dim=1)
                 scores_spans = torch.einsum("id, jd->ij", qsemb / self.tau_span, ksemb)
@@ -108,22 +109,20 @@ class InBatchWithSpan(InBatch):
                 loss_span = KLLoss(logits_spans, probs_sents)
                 losses = {'loss_sent': loss_0, 'loss_span': loss_span}
 
-            elif self.opt.distil_from_sentence.lower() == 'mse':
+            elif 'mse' in self.opt.distil_from_sentence.lower():
                 # distill from embedding (at the normalized vector))
                 qemb = torch.nn.functional.normalize(qemb, dim=-1)
                 kemb = torch.nn.functional.normalize(kemb, dim=-1)
                 qsemb = torch.nn.functional.normalize(qsemb, dim=-1)
                 ksemb = torch.nn.functional.normalize(ksemb, dim=-1)
-                loss_span = ( MSELoss(qsemb, qemb) + MSELoss(ksemb, kemb) ) / 2
+                loss_span = MSELoss(qsemb, qemb) + MSELoss(ksemb, kemb) 
                 losses = {'loss_sent': loss_0, 'loss_span': loss_span}
 
-            elif self.opt.distil_from_sentence.lower() == 'cont':
+            elif 'cont' in self.opt.distil_from_sentence.lower():
                 ## add loss of (q-span, doc) ## add loss of (query, d-span)
                 sscores_1 = torch.einsum("id, jd->ij", qsemb / self.tau_span, kemb)
-                loss_1 = CELoss(sscores_1, labels)
                 sscores_2 = torch.einsum("id, jd->ij", qemb / self.tau_span, ksemb)
-                loss_2 = CELoss(sscores_2, labels)
-                loss_span = (loss_1 + loss_2) / 2
+                loss_span = (CELoss(sscores_1, labels) + CELoss(sscores_2, labels)) / 2
                 losses = {'loss_sent': loss_0, 'loss_span': loss_span}
 
         loss = loss_0 + loss_span

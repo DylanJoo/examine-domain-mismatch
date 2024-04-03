@@ -1,10 +1,9 @@
 index_dir=/home/dju/indexes/beir
 data_dir=/home/dju/datasets/beir
 
-# for ckpt in 2000 4000 6000 8000 10000;do
-for ckpt in 10000;do
+for ckpt in 2500 5000;do
 
-    exp=ind-cropping-cls-span_select_sum-kl-
+    exp=ind-cropping-cls-span_select_weird-cont-
     encoder=/home/dju/examine-domain-mismatch/models/ckpt/contriever-${exp}trec-covid/checkpoint-$ckpt
     pooling=cls
 
