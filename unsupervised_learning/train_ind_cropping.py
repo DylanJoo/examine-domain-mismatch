@@ -25,6 +25,9 @@ def main():
 
     # [Model] tokenizer, model architecture (with bi-encoders)
     tokenizer = AutoTokenizer.from_pretrained(model_opt.model_path or model_opt.model_name)
+    tokenizer.bos_token = '[CLS]'
+    tokenizer.eos_token = '[SEP]'
+
     # [Model-Dev]
     if 'span' in train_opt.output_dir or 'boundary' in train_opt.output_dir:
         from models._dev import Contriever 
