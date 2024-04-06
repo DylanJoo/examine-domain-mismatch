@@ -61,13 +61,13 @@ class Dataset(torch.utils.data.Dataset):
         end_idx = start_idx + self.chunk_length
         tokens = self.data[start_idx:end_idx]
         q_tokens = randomcrop(tokens, self.opt.ratio_min, self.opt.ratio_max)
-        k_tokens = randomcrop(tokens, self.opt.ratio_min, self.opt.ratio_max)
+        c_tokens = randomcrop(tokens, self.opt.ratio_min, self.opt.ratio_max)
         q_tokens = apply_augmentation(q_tokens, self.opt)
         q_tokens = add_bos_eos(q_tokens, self.tokenizer.bos_token_id, self.tokenizer.eos_token_id)
-        k_tokens = apply_augmentation(k_tokens, self.opt)
-        k_tokens = add_bos_eos(k_tokens, self.tokenizer.bos_token_id, self.tokenizer.eos_token_id)
+        c_tokens = apply_augmentation(c_tokens, self.opt)
+        c_tokens = add_bos_eos(c_tokens, self.tokenizer.bos_token_id, self.tokenizer.eos_token_id)
 
-        return {"q_tokens": q_tokens, "k_tokens": k_tokens}
+        return {"q_tokens": q_tokens, "c_tokens": c_tokens}
 
     def generate_offset(self):
         self.offset = random.randint(0, self.chunk_length - 1)
@@ -85,12 +85,12 @@ class Collator(object):
                 batch[k].append(v)
 
         q_tokens, q_mask = build_mask(batch["q_tokens"])
-        k_tokens, k_mask = build_mask(batch["k_tokens"])
+        c_tokens, c_mask = build_mask(batch["c_tokens"])
 
         batch["q_tokens"] = q_tokens
         batch["q_mask"] = q_mask
-        batch["k_tokens"] = k_tokens
-        batch["k_mask"] = k_mask
+        batch["c_tokens"] = c_tokens
+        batch["c_mask"] = c_mask
 
         return batch
 

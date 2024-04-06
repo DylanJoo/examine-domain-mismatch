@@ -11,7 +11,7 @@ from trainers import TrainerBase
 from ind_cropping.options import ModelOptions, DataOptions, TrainOptions
 from ind_cropping.data import load_dataset, Collator
 
-os.environ["WANDB_PROJECT"]="SSL4LEDR"
+os.environ['WANDB_PROJECT'] = 'SSL4LEDR'
 
 
 def main():
@@ -29,20 +29,27 @@ def main():
     tokenizer.eos_token = '[SEP]'
 
     # [Model-Dev]
+    ## [todo] include the distillation if needed
     if 'span' in train_opt.output_dir or 'boundary' in train_opt.output_dir:
         from models._dev import Contriever 
         from models.inbatch import InBatchWithSpan as InBatch
     else:
         from models import Contriever
-        from models import InBatch
+        if model_opt.use_multivectors:
+            from models import LateInteraction as InBatch
+        else:
+            from models import InBatch
 
     encoder = Contriever.from_pretrained(model_opt.model_name, 
             pooling=model_opt.pooling,
-            span_pooling=model_opt.span_pooling
+            span_pooling=model_opt.span_pooling,
+            use_multivectors=model_opt.use_multivectors
     )
-    model = InBatch(model_opt, retriever=encoder, tokenizer=tokenizer)
-
-    ## [todo] include the distillation if needed
+    model = InBatch(
+            model_opt, 
+            retriever=encoder, 
+            tokenizer=tokenizer
+    )
     
     # [Data] train/eval datasets, collator, preprocessor
     train_dataset = load_dataset(data_opt, tokenizer)

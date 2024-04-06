@@ -10,7 +10,7 @@ from transformers.modeling_outputs import BaseModelOutput
 class InBatchOutput(BaseModelOutput):
     loss: torch.FloatTensor = None
     acc: Optional[Tuple[torch.FloatTensor, ...]] = None
-    losses: Optional[Dict[str, torch.FloatTensor]] = None
+    logs: Optional[Dict[str, torch.FloatTensor]] = None
     q_span: Optional[Tuple[torch.FloatTensor, ...]] = None
     d_span: Optional[Tuple[torch.FloatTensor, ...]] = None
 
@@ -29,17 +29,17 @@ class InBatch(nn.Module):
         self.tau = opt.temperature
         self.tau_span = opt.temperature_span
 
-    def forward(self, q_tokens, q_mask, k_tokens, k_mask, stats_prefix="", **kwargs):
+    def forward(self, q_tokens, q_mask, c_tokens, c_mask, stats_prefix="", **kwargs):
 
         # this is for random cropping
-        if (k_tokens is None) and (k_mask is None):
+        if (c_tokens is None) and (c_mask is None):
             return self.forward_bidirectional(q_tokens, q_mask, **kwargs)
 
         bsz = len(q_tokens)
         labels = torch.arange(0, bsz, dtype=torch.long, device=q_tokens.device)
 
         qemb = self.encoder(input_ids=q_tokens, attention_mask=q_mask, normalize=self.norm_query)
-        kemb = self.encoder(input_ids=k_tokens, attention_mask=k_mask, normalize=self.norm_doc)
+        kemb = self.encoder(input_ids=c_tokens, attention_mask=c_mask, normalize=self.norm_doc)
 
         scores = torch.einsum("id, jd->ij", qemb / self.tau, kemb)
 
@@ -75,12 +75,12 @@ class InBatch(nn.Module):
 class InBatchForSplade(InBatch):
     """ Reminder: splade's additional parameters """
 
-    def forward(self, q_tokens, q_mask, k_tokens, k_mask, **kwargs):
-        return super().forward(q_tokens, q_mask, k_tokens, k_mask, **kwargs)
+    def forward(self, q_tokens, q_mask, c_tokens, c_mask, **kwargs):
+        return super().forward(q_tokens, q_mask, c_tokens, c_mask, **kwargs)
 
 class InBatchWithSpan(InBatch):
 
-    def forward(self, q_tokens, q_mask, k_tokens, k_mask, **kwargs):
+    def forward(self, q_tokens, q_mask, c_tokens, c_mask, **kwargs):
 
         bsz = len(q_tokens)
         labels = torch.arange(0, bsz, dtype=torch.long, device=q_tokens.device)
@@ -91,7 +91,7 @@ class InBatchWithSpan(InBatch):
         MSELoss = nn.MSELoss()
 
         qemb, qsemb, qsids = self.encoder(input_ids=q_tokens, attention_mask=q_mask, normalize=self.norm_query, normalize_spans=self.norm_spans)
-        kemb, ksemb, ksids = self.encoder(input_ids=k_tokens, attention_mask=k_mask, normalize=self.norm_doc, normalize_spans=self.norm_spans)
+        kemb, ksemb, ksids = self.encoder(input_ids=c_tokens, attention_mask=c_mask, normalize=self.norm_doc, normalize_spans=self.norm_spans)
 
         # [sentence]
         scores = torch.einsum("id, jd->ij", qemb / self.tau, kemb)
@@ -107,7 +107,6 @@ class InBatchWithSpan(InBatch):
                 scores_spans = torch.einsum("id, jd->ij", qsemb / self.tau_span, ksemb)
                 logits_spans = F.log_softmax(scores_spans, dim=1)
                 loss_span = KLLoss(logits_spans, probs_sents)
-                losses = {'loss_sent': loss_0, 'loss_span': loss_span}
 
             elif 'mse' in self.opt.distil_from_sentence.lower():
                 # distill from embedding (at the normalized vector))
@@ -116,21 +115,19 @@ class InBatchWithSpan(InBatch):
                 qsemb = torch.nn.functional.normalize(qsemb, dim=-1)
                 ksemb = torch.nn.functional.normalize(ksemb, dim=-1)
                 loss_span = MSELoss(qsemb, qemb) + MSELoss(ksemb, kemb) 
-                losses = {'loss_sent': loss_0, 'loss_span': loss_span}
 
             elif 'cont' in self.opt.distil_from_sentence.lower():
                 ## add loss of (q-span, doc) ## add loss of (query, d-span)
                 sscores_1 = torch.einsum("id, jd->ij", qsemb / self.tau_span, kemb)
                 sscores_2 = torch.einsum("id, jd->ij", qemb / self.tau_span, ksemb)
                 loss_span = (CELoss(sscores_1, labels) + CELoss(sscores_2, labels)) / 2
-                losses = {'loss_sent': loss_0, 'loss_span': loss_span}
 
         loss = loss_0 + loss_span
 
         return InBatchOutput(
 	        loss=loss, 
 	        acc=accuracy,
-	        losses=losses,
+	        logs={'loss_sent': loss_0, 'loss_span': loss_span},
 	        q_span=qsids, 
 	        d_span=ksids,
 	)

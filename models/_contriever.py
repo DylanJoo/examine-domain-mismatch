@@ -6,10 +6,10 @@ from transformers import BertModel
 
 
 class Contriever(BertModel):
-    def __init__(self, config, pooling="mean", **kwargs):
+    def __init__(self, config, pooling='mean', use_multivectors=False, **kwargs):
         super().__init__(config, add_pooling_layer=False)
-        if not hasattr(config, "pooling"):
-            self.config.pooling = pooling
+        self.config.pooling = pooling
+        self.use_multivectors = use_multivectors
 
     def forward(
         self,
@@ -36,7 +36,7 @@ class Contriever(BertModel):
             encoder_hidden_states=encoder_hidden_states,
             encoder_attention_mask=encoder_attention_mask,
             output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
+            output_hidden_states=True,
         )
 
         last_hidden = model_output["last_hidden_state"]
@@ -44,10 +44,16 @@ class Contriever(BertModel):
 
         if self.config.pooling == "cls":
             emb = last_hidden[:, 0]
-        else:
+        elif self.config.pooling == 'mean':
             emb = last_hidden.sum(dim=1) / attention_mask.sum(dim=1)[..., None]
-        if normalize:
-            emb = torch.nn.functional.normalize(emb, dim=-1)
+        else: # this is multi-vectors
+            emb = None 
 
+        if self.use_multivectors:
+            emb = last_hidden
+
+        if normalize:
+            emb = torch.nn.functional.normalize(emb, p=2, dim=-1)
         return emb
+
 

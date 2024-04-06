@@ -53,6 +53,7 @@ class Contriever(BertModel):
         output_hidden_states=None,
         normalize=False,
         normalize_spans=False,
+        output_multivectors=False
     ):
 
         model_output = super().forward(
@@ -65,7 +66,7 @@ class Contriever(BertModel):
             encoder_hidden_states=encoder_hidden_states,
             encoder_attention_mask=encoder_attention_mask,
             output_attentions=output_attentions,
-            output_hidden_states=output_hidden_states,
+            output_hidden_states=True
         )
 
         last_hidden_states = model_output["last_hidden_state"]
@@ -73,11 +74,10 @@ class Contriever(BertModel):
 
         bsz, seq_len = input_ids.size() if input_ids is not None else inputs_embeds.size()[:2]
         emb_size = last_hidden.size(-1)
-        kwargs = {
-                'hidden': last_hidden, 'mask': attention_mask, 
-                'bsz': bsz, 'seq_len': seq_len, 'emb_size': emb_size,
-                'normalize': normalize_spans
-        }
+        kwargs = {'hidden': last_hidden, 'mask': attention_mask, 
+                  'bsz': bsz, 'seq_len': seq_len, 'emb_size': emb_size,
+                  'normalize': normalize_spans, 
+                  'output_multivectors': output_multivectors}
 
         # sentence representation
         if 'cls' in self.config.pooling:
@@ -129,9 +129,7 @@ class Contriever(BertModel):
                 hidden[:, 1:, :].permute(0,2,1)[:, :, None, :] # bsz embsize 1 seqlen
         ).permute(0,2,3,1)  
 
-        span_emb = (boundary_embeddings * boundary_logits[..., None]).view(
-                bsz, -1, emb_size
-        ).sum(1)
+        span_emb = (boundary_embeddings * boundary_logits[..., None]).view(bsz, -1, emb_size).sum(1)
         return span_emb, span_ids
 
     def _boundary_average(self, hidden, mask, bsz, emb_size, **kwargs): 
@@ -168,19 +166,18 @@ class Contriever(BertModel):
 
     def _span_select_average(self, hidden, mask, **kwargs):
         select_prob = self.outputs(hidden[:, 1:, :]) # exclude CLS
-        span_emb = torch.mean(hidden[:, 1:, :] * select_prob, dim=1) / 256
+        span_emb = torch.mean(hidden[:, 1:, :] * select_prob, dim=1)
         top_k_ids = 1 + select_prob.squeeze(-1).topk(10).indices 
         return span_emb, top_k_ids
 
-    def _span_select_sum(self, hidden, mask, normalize, **kwargs):
+    def _span_select_sum(self, hidden, mask, **kwargs):
         select_prob = self.outputs(hidden[:, 1:, :]) # exclude CLS
-        # span_emb = torch.sum(hidden[:, 1:, :] * select_prob, dim=1) # sum
-        span_emb = (hidden[:, 1:, :] * select_prob).sum(dim=1) / (mask.sum(dim=1) - 1)[..., None]
+        span_emb = (hidden[:, 1:, :] * select_prob).sum(dim=1) 
         top_k_ids = 1 + select_prob.squeeze(-1).topk(10).indices 
         return span_emb, top_k_ids
 
     def _span_select_weird(self, hidden, mask, **kwargs):
         select_prob = self.outputs(hidden[:, 1:, :]) # exclude CLS
-        span_emb = (hidden[:, 1:, :] * select_prob).sum(dim=1) / 256
+        span_emb = (hidden[:, 1:, :] * select_prob).sum(dim=1) / (mask.sum(dim=1) - 1)[..., None]
         top_k_ids = 1 + select_prob.squeeze(-1).topk(10).indices 
         return span_emb, top_k_ids
