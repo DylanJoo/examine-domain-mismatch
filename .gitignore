@@ -8,3 +8,5 @@ models/ckpt/
 models/ckpt
 wandb/
 *.out
+*.debug
+

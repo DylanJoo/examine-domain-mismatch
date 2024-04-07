@@ -16,8 +16,9 @@ def search(args):
             args.encoder_path, 
             tokenizer_name='facebook/contriever',
             device=args.device,
-            pooling='mean', 
-            l2_norm=False
+            pooling=args.pooling,
+            l2_norm=False,
+            add_special_tokens=False if 'ablation' in args.encoder_path else True
         )
 
     searcher = FaissSearcher(args.index, query_encoder)
