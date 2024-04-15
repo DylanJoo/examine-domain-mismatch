@@ -135,5 +135,5 @@ class InBatchWithSpan(InBatch):
         return InBatchOutput(
 	        loss=loss, 
 	        acc=accuracy,
-          logs=logs,
+                logs=logs,
 	)

@@ -10,18 +10,25 @@ class ModelOptions:
     model_path: Optional[str] = field(default=None)
     tokenizer_name: Optional[str] = field(default=None)
     # SSL DR
+    add_pooling_layer: Optional[bool] = field(default=False)
     pooling: Optional[str] = field(default="mean")
     span_pooling: Optional[str] = field(default=None)
     norm_doc: Optional[bool] = field(default=False)
     norm_query: Optional[bool] = field(default=False)
     norm_spans: Optional[bool] = field(default=False)
     output_span: Optional[bool] = field(default=False)
-    distil_from_sentence: Optional[str] = field(default=None)
     # Lexical-enhanced: span
     temperature: Optional[float] = field(default=1.0)
     temperature_span: Optional[float] = field(default=1.0)
+    span_sent_interaction: Optional[str] = field(default='no')
+    span_span_interaction: Optional[bool] = field(default=False)
     # Lexical-enhanced: multivec
-    use_multivectors: Optional[bool] = field(default=False)
+    late_interaction: Optional[bool] = field(default=False)
+    # Objective weights
+    alpha: float = field(default=1.0)
+    beta: float = field(default=0.0)
+    gamma: float = field(default=0.0)
+    delta: float = field(default=0.0)
 
 @dataclass
 class DataOptions:
@@ -43,10 +50,13 @@ class TrainOptions(TrainingArguments):
     do_train: bool = field(default=False)
     do_eval: bool = field(default=False)
     max_steps: int = field(default=-1)
+    num_train_epochs: int = field(default=3)
+    save_strategy: str = field(default='steps')
     save_steps: int = field(default=2000)
     eval_steps: int = field(default=1000)
     warmup_ratio: float = field(default=0.0)
     warmup_steps: int = field(default=0)
+    overwrite_output_dir: bool = field(default=True)
     evaluation_strategy: Optional[str] = field(default='no')
     per_device_train_batch_size: int = field(default=2)
     per_device_eval_batch_size: int = field(default=2)

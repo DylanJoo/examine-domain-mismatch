@@ -12,35 +12,42 @@
 source ${HOME}/.bashrc
 conda activate exa-dm_env
 
+# backbone=gte
+# ckpt=thenlper/gte-base
+backbone=contriever
+ckpt=facebook/contriever
+
 # Start the experiment.
-# cd examine-domain-mismatch
-
-# Setup experiments
-MAX_STEPS=5000
-MAX_CKPTS=2
-
-# Setting of lexical-enhanced DR
-for pooling in cls;do
-    method=ind-cropping
-    exp=${method}-${pooling}-multivec
+for alpha in 1.0;do
+for beta in 0.0;do
+for gamma in 0.0;do
+for delta in 2.0;do
+for dataset in trec-covid;do
+    exp=alpha.${alpha}-beta.${beta}-gamma.${gamma}-delta.${delta}
 
     # Go
     torchrun --nproc_per_node 2 \
         unsupervised_learning/train_ind_cropping.py \
-        --model_name facebook/contriever \
-        --output_dir models/ckpt/contriever-${exp}-trec-covid \
+        --model_name ${ckpt} \
+        --output_dir models/ckpt/${backbone}-${exp}/${dataset} \
         --per_device_train_batch_size 32 \
-        --temperature 0.5 \
-        --pooling $pooling \
-        --use_multivectors \
+        --temperature 0.1 \
+        --temperature_span 0.5 \
+        --pooling mean \
         --chunk_length 256 \
-        --save_steps 2500 \
-        --save_total_limit $MAX_CKPTS \
-        --max_steps $MAX_STEPS \
+        --late_interaction \
+        --num_train_epochs 1 \
+        --save_strategy epoch \
+        --save_total_limit 2 \
         --warmup_ratio 0.1 \
         --fp16 \
-        --report_to wandb --run_name ${exp} \
-        --train_data_dir /home/dju/datasets/test_collection/ind_cropping
-
-echo done $pooling
+        --norm_doc --norm_query \
+        --alpha $alpha --beta $beta --gamma $gamma --delta $delta \
+        --report_to wandb --run_name ${dataset}-${exp} \
+        --wandb_project debug \
+        --train_data_dir /home/dju/datasets/beir/${dataset}/ind_cropping
+done
+done
+done
+done
 done
