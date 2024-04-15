@@ -21,10 +21,12 @@ import sys
 from pyserini.encode import JsonlCollectionIterator, FaissRepresentationWriter
 from pyserini.encode import AutoDocumentEncoder
 
-from encoders import ContrieverDocumentEncoder
+from encoders import ContrieverDocumentEncoder, GTEDocumentEncoder
 
 encoder_class_map = {
-    "contriever": ContrieverDocumentEncoder
+    "contriever": ContrieverDocumentEncoder,
+    "auto": AutoDocumentEncoder,
+    "gte": GTEDocumentEncoder
 }
 
 def init_encoder(encoder, encoder_class, device, pooling, l2_norm, prefix):
@@ -48,12 +50,15 @@ def init_encoder(encoder, encoder_class, device, pooling, l2_norm, prefix):
             encoder_class = AutoDocumentEncoder
 
     # prepare arguments to encoder class
-    kwargs = dict(model_name_or_dir=encoder, device=device)
+    kwargs = dict(model_name=encoder, device=device)
     if (_encoder_class == "sentence-transformers") or ("sentence-transformers" in encoder):
         kwargs.update(dict(pooling='mean', l2_norm=True))
     if (_encoder_class == "contriever") or ("contriever" in encoder):
         pooling = pooling or 'mean'
         kwargs.update(dict(pooling=pooling, l2_norm=False))
+    if (_encoder_class == "gte") or ("gte" in encoder):
+        pooling = pooling or 'mean'
+        kwargs.update(dict(pooling=pooling, l2_norm=True))
     if (_encoder_class == "auto"):
         kwargs.update(dict(pooling=pooling, l2_norm=l2_norm, prefix=prefix))
     return encoder_class(**kwargs)
@@ -99,7 +104,7 @@ if __name__ == '__main__':
 
     encoder_parser = commands.add_parser('encoder')
     encoder_parser.add_argument('--encoder', type=str, help='encoder name or path', required=True)
-    encoder_parser.add_argument('--encoder-class', type=str, required=False, default=None, choices=["auto", "contriever"])
+    encoder_parser.add_argument('--encoder-class', type=str, required=False, default=None, choices=["auto", "contriever", "gte"])
     encoder_parser.add_argument('--fields', help='fields to encode', nargs='+', default=['text'], required=False)
     encoder_parser.add_argument('--batch-size', type=int, help='batch size', default=64, required=False)
     encoder_parser.add_argument('--max-length', type=int, help='max length', default=256, required=False)
