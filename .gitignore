@@ -9,4 +9,3 @@ models/ckpt
 wandb/
 *.out
 *.debug
-

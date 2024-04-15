@@ -1,3 +1,4 @@
+# [TODO] revise this into impact codes for learned sparse retrieval
 # This code is modified from pyserini, please refer to original one for references.
 
 # Pyserini: Reproducible IR research with sparse and dense representations
@@ -21,15 +22,11 @@ import sys
 from pyserini.encode import JsonlCollectionIterator, FaissRepresentationWriter
 from pyserini.encode import AutoDocumentEncoder
 
-<<<<<<<< HEAD:retrieval/dense_index.py
-from encoders import ContrieverDocumentEncoder, GTEDocumentEncoder
-========
-from encoders import ContrieverDocumentEncoder
->>>>>>>> main:archived/encode/dense.py
+sys.path.insert(0, "/home/dju/examine-domain-mismatch")
+from models import ContrieverDocumentEncoder
 
 encoder_class_map = {
-    "contriever": ContrieverDocumentEncoder,
-    "gte": GTEDocumentEncoder
+    "contriever": ContrieverDocumentEncoder
 }
 
 def init_encoder(encoder, encoder_class, device, pooling, l2_norm, prefix):
@@ -53,14 +50,13 @@ def init_encoder(encoder, encoder_class, device, pooling, l2_norm, prefix):
             encoder_class = AutoDocumentEncoder
 
     # prepare arguments to encoder class
-    kwargs = dict(model_name=encoder, device=device)
+    kwargs = dict(model_name_or_dir=encoder, device=device)
+    if (_encoder_class == "sentence-transformers") or ("sentence-transformers" in encoder):
+        kwargs.update(dict(pooling='mean', l2_norm=True))
     if (_encoder_class == "contriever") or ("contriever" in encoder):
-        pooling = pooling or 'mean'
-        kwargs.update(dict(pooling=pooling, l2_norm=False))
-    if (_encoder_class == "gte") or ("gte" in encoder):
-        pooling = pooling or 'mean'
-        l2_norm = l2_norm or False
-        kwargs.update(dict(pooling=pooling, l2_norm=l2_norm))
+        kwargs.update(dict(pooling='mean', l2_norm=False))
+    if (_encoder_class == "auto"):
+        kwargs.update(dict(pooling=pooling, l2_norm=l2_norm, prefix=prefix))
     return encoder_class(**kwargs)
 
 def parse_args(parser, commands):
@@ -104,7 +100,7 @@ if __name__ == '__main__':
 
     encoder_parser = commands.add_parser('encoder')
     encoder_parser.add_argument('--encoder', type=str, help='encoder name or path', required=True)
-    encoder_parser.add_argument('--encoder-class', type=str, required=False, default=None, choices=["auto", "contriever", "gte"])
+    encoder_parser.add_argument('--encoder-class', type=str, required=False, default=None, choices=["auto", "contriever"])
     encoder_parser.add_argument('--fields', help='fields to encode', nargs='+', default=['text'], required=False)
     encoder_parser.add_argument('--batch-size', type=int, help='batch size', default=64, required=False)
     encoder_parser.add_argument('--max-length', type=int, help='max length', default=256, required=False)
@@ -112,8 +108,7 @@ if __name__ == '__main__':
     encoder_parser.add_argument('--device', type=str, default='cuda:0', required=False)
     encoder_parser.add_argument('--fp16', action='store_true', default=False)
     encoder_parser.add_argument('--add-sep', action='store_true', default=False)
-    # encoder_parser.add_argument('--pooling', type=str, default='cls', help='for auto classes, allow the ability to dictate pooling strategy', choices=['cls', 'mean'], required=False)
-    encoder_parser.add_argument('--pooling', type=str, default=None, help='for auto classes, allow the ability to dictate pooling strategy')
+    encoder_parser.add_argument('--pooling', type=str, default='cls', help='for auto classes, allow the ability to dictate pooling strategy', choices=['cls', 'mean'], required=False)
     encoder_parser.add_argument('--l2-norm', action='store_true', help='whether to normalize embedding', default=False, required=False)
     encoder_parser.add_argument('--prefix', type=str, help='prefix of document input', default=None, required=False)
     encoder_parser.add_argument('--use-openai', help='use OpenAI text-embedding-ada-002 to retreive embeddings', action='store_true', default=False)

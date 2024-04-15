@@ -47,4 +47,3 @@
 #### Check section coherence
 #### Draft paper outline
 
->>>>>>> main
