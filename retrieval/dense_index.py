@@ -25,7 +25,6 @@ from encoders import ContrieverDocumentEncoder, GTEDocumentEncoder
 
 encoder_class_map = {
     "contriever": ContrieverDocumentEncoder,
-    "auto": AutoDocumentEncoder,
     "gte": GTEDocumentEncoder
 }
 
@@ -51,16 +50,13 @@ def init_encoder(encoder, encoder_class, device, pooling, l2_norm, prefix):
 
     # prepare arguments to encoder class
     kwargs = dict(model_name=encoder, device=device)
-    if (_encoder_class == "sentence-transformers") or ("sentence-transformers" in encoder):
-        kwargs.update(dict(pooling='mean', l2_norm=True))
     if (_encoder_class == "contriever") or ("contriever" in encoder):
         pooling = pooling or 'mean'
         kwargs.update(dict(pooling=pooling, l2_norm=False))
     if (_encoder_class == "gte") or ("gte" in encoder):
         pooling = pooling or 'mean'
-        kwargs.update(dict(pooling=pooling, l2_norm=True))
-    if (_encoder_class == "auto"):
-        kwargs.update(dict(pooling=pooling, l2_norm=l2_norm, prefix=prefix))
+        l2_norm = l2_norm or False
+        kwargs.update(dict(pooling=pooling, l2_norm=l2_norm))
     return encoder_class(**kwargs)
 
 def parse_args(parser, commands):
