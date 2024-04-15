@@ -58,7 +58,10 @@ class Contriever(BertModel):
             emb = last_hidden.sum(dim=1) / attention_mask.sum(dim=1)[..., None]
 
         if self.config.span_pooling is None:
-            return emb, last_hidden if return_multi_vectors else emb
+            if return_multi_vectors:
+                return emb, last_hidden 
+            else:
+                return emb
         else:
             # sub-sentence representation
             bsz, max_len, hsz = last_hidden.size()
