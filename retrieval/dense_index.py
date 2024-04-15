@@ -21,11 +21,7 @@ import sys
 from pyserini.encode import JsonlCollectionIterator, FaissRepresentationWriter
 from pyserini.encode import AutoDocumentEncoder
 
-<<<<<<<< HEAD:retrieval/dense_index.py
 from encoders import ContrieverDocumentEncoder, GTEDocumentEncoder
-========
-from encoders import ContrieverDocumentEncoder
->>>>>>>> main:archived/encode/dense.py
 
 encoder_class_map = {
     "contriever": ContrieverDocumentEncoder,
