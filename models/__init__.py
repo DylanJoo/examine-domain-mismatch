@@ -7,4 +7,3 @@ from .lateinteraction import LateInteraction
 # the encoder models
 from ._contriever import Contriever
 from ._splade import SpladeRep
-
