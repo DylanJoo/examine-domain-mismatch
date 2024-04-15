@@ -6,21 +6,30 @@ from tqdm import tqdm
 
 from pyserini.search import FaissSearcher
 
-from encoders import ContrieverQueryEncoder
+from searcher import FaissMaxSearcher
 from utils import load_topic, batch_iterator
+
+from encoders import ContrieverQueryEncoder, GTEQueryEncoder
+
+encoder_class_map = {
+    "contriever": ContrieverQueryEncoder,
+    "gte": GTEQueryEncoder
+}
 
 def search(args):
 
-    if 'contriever' in args.encoder_path:
-        query_encoder = ContrieverQueryEncoder(
-            args.encoder_path, 
-            tokenizer_name='facebook/contriever',
-            device=args.device,
-            pooling='mean', 
-            l2_norm=False
-        )
+    query_encoder = encoder_class_map[args.encoder_class](
+        args.encoder_path, 
+        device=args.device,
+        pooling=args.pooling if args.use_multiple_vectors is False else 'none',
+        l2_norm=args.l2_norm,
+        use_span_embedding=True if args.use_span_embedding else False
+    )
 
-    searcher = FaissSearcher(args.index, query_encoder)
+    if args.use_multiple_vectors:
+        searcher = FaissMaxSearcher(args.index, query_encoder)
+    else:
+        searcher = FaissSearcher(args.index, query_encoder)
 
     topics = load_topic(args.topic)
     qids = list(topics.keys())
@@ -53,12 +62,16 @@ if __name__ == '__main__':
     parser.add_argument("--k", default=1000, type=int)
     parser.add_argument("--index", default=None, type=str)
     parser.add_argument("--encoder_path", default=None, type=str)
+    parser.add_argument("--encoder_class", default='contriever', type=str)
     parser.add_argument("--topic", default=None, type=str)
     parser.add_argument("--batch_size", default=1, type=int)
     parser.add_argument("--output", default=None, type=str)
     parser.add_argument("--device", default='cpu', type=str)
     # additiona model setup
     parser.add_argument("--pooling", default='cls', type=None)
+    parser.add_argument("--l2_norm", default=False, action='store_true')
+    parser.add_argument("--use_span_embedding", action='store_true', default=False)
+    parser.add_argument("--use_multiple_vectors", action='store_true', default=False)
     args = parser.parse_args()
 
     os.makedirs(args.output.rsplit('/', 1)[0], exist_ok=True)

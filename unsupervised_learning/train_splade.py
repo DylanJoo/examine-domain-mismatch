@@ -24,9 +24,11 @@ def main():
 
     # [Model] tokenizer, model architecture (with bi-encoders)
     tokenizer = AutoTokenizer.from_pretrained(model_opt.model_path or model_opt.model_name)
+    tokenizer.bos_token = '[CLS]'
+    tokenizer.eos_token = '[SEP]'
+
     encoder = SpladeRep.from_pretrained(model_opt.model_name, pooling='max')
     model = InBatchForSplade(model_opt, retriever=encoder, tokenizer=tokenizer)
-
 
     # [Data] train/eval datasets, collator, preprocessor
     ## [todo] bootstrap some validatoin data
