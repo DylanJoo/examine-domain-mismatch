@@ -13,7 +13,6 @@ from ind_cropping.data import load_dataset, Collator
 
 os.environ['WANDB_PROJECT'] = 'SSL4LEDR'
 
-
 def main():
 
     parser = HfArgumentParser((ModelOptions, DataOptions, TrainOptions))
@@ -24,26 +23,22 @@ def main():
         os.environ["WANDB_PROJECT"] = train_opt.wandb_project
 
     # [Model] tokenizer, model architecture (with bi-encoders)
-    tokenizer = AutoTokenizer.from_pretrained(model_opt.model_path or model_opt.model_name)
+    tokenizer = AutoTokenizer.from_pretrained(model_opt.tokenizer_name or model_opt.model_name)
     tokenizer.bos_token = '[CLS]'
     tokenizer.eos_token = '[SEP]'
+    from models import Contriever
 
-    # [Model-Dev]
-    ## [todo] include the distillation if needed
-    if 'span' in train_opt.output_dir or 'boundary' in train_opt.output_dir:
-        from models._dev import Contriever 
+    if 'span' in train_opt.output_dir:
         from models.inbatch import InBatchWithSpan as InBatch
+    elif model_opt.late_interaction:
+        from models import LateInteraction as InBatch
     else:
-        from models import Contriever
-        if model_opt.use_multivectors:
-            from models import LateInteraction as InBatch
-        else:
-            from models import InBatch
+        from models import InBatch
 
     encoder = Contriever.from_pretrained(model_opt.model_name, 
+            add_pooling_layer=model_opt.add_pooling_layer,
             pooling=model_opt.pooling,
             span_pooling=model_opt.span_pooling,
-            use_multivectors=model_opt.use_multivectors
     )
     model = InBatch(
             model_opt, 
