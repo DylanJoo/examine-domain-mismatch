@@ -15,7 +15,7 @@ conda activate exa-dm_env
 # Start the experiment.
 
 # Setup experiments
-for dataset in scidocs scifact;do
+for dataset in trec-covid scidocs scifact;do
 
     backbone=contriever
     exp=facebook/contriever

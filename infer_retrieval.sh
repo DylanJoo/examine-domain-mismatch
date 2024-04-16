@@ -23,12 +23,11 @@ data_dir=${HOME}/datasets/beir
 for dataset in trec-covid;do
 
     for dummy in 0.0;do
-    for model in baseline;do
+    for method in baseline;do
 
-        backbone=gte
-        model=alpha.1.0-beta.0.0-gamma.0.0-delta.1.0
-        exp=${model}
-        encoder=/home/dju/examine-domain-mismatch/models/ckpt/${backbone}-${exp}/${dataset}
+        backbone=contriever
+        exp=${method}
+        encoder=/home/dju/examine-domain-mismatch/models/ckpt/${backbone}-${exp}/${dataset}/checkpoint-2330
 
         echo indexing...
         python3 retrieval/dense_index.py input \
@@ -40,7 +39,7 @@ for dataset in trec-covid;do
             --to-faiss encoder \
             --encoder-class ${backbone} \
             --encoder ${encoder} \
-            --pooling mean \
+            --pooling cls \
             --fields text title \
             --batch 32 \
             --max-length 256 \
