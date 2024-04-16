@@ -58,7 +58,10 @@ class Contriever(BertModel):
             emb = last_hidden.sum(dim=1) / attention_mask.sum(dim=1)[..., None]
 
         if self.config.span_pooling is None:
-            return emb, last_hidden if return_multi_vectors else emb
+            if return_multi_vectors:
+                return emb, last_hidden 
+            else:
+                return emb
         else:
             # sub-sentence representation
             bsz, max_len, hsz = last_hidden.size()
@@ -94,17 +97,21 @@ class Contriever(BertModel):
         end_logits = end_logits.squeeze(-1).contiguous()
 
         # hard
-        start_probs = nn.functional.softmax(start_logits, dim=-1)
-        end_probs = nn.functional.softmax(end_logits, dim=-1)
+        start_probs = nn.functional.gumbel_softmax(start_logits, hard=True)
+        end_probs = nn.functional.gumbel_softmax(end_logits, hard=True)
+        # start_probs = nn.functional.softmax(start_logits, dim=-1)
+        # end_probs = nn.functional.softmax(end_logits, dim=-1)
 
         start_probs_vec = start_probs.cumsum(-1)
         end_probs_vec = torch.flip(torch.flip(end_probs, [1]).cumsum(-1), [1])
         span_mask = start_probs_vec * end_probs_vec # B L
+        span_mask_ = span_mask.clone()
+        span_mask_[span_mask==0] = 1e-6
 
         self.additional_log['extract_ratio'] = ( (span_mask * mask).sum(dim=1) / mask.sum(dim=-1) ).mean()
         self.additional_log['extract_length'] = torch.abs(start_logits.argmax(dim=-1) - end_logits.argmax(dim=-1)).float().mean()
 
-        span_emb = hidden * span_mask[..., None] # B L H
+        span_emb = hidden * span_mask_[..., None] # B L H
 
         if return_multi_vectors:
             return span_emb
